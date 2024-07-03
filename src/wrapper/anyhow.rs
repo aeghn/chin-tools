@@ -1,1 +1,1 @@
-pub type RResult<T> = anyhow::Result<T>;
+pub type AResult<T> = anyhow::Result<T>;

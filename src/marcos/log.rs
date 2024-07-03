@@ -1,8 +1,8 @@
 #[macro_export]
-macro_rules! log_and_bail {
+macro_rules! log_and_err {
     ($fmt:expr $(, $arg:expr)*) => {{
         let msg = format!(concat!(" [{}:{}]", $fmt), file!(), line!(), $($arg)*);
         tracing::error!("{}", msg);
-        anyhow::bail!(msg)
+        Err(anyhow::anyhow!(msg))
     }};
 }
