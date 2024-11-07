@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.75"
+hashbrown = "0.15.1"
 
 # Logging info
 tracing = "0.1.40"
@@ -18,16 +19,19 @@ serde_json = "1.0"
 strum = { version = "0.26", features = ["derive"] }
 
 # Ratatui Related
-crossterm = { version = "0.27.0", optional = true }
+crossterm = { version = "0.27.0", optional = true, default-features = false }
 
-# Async Related Crates
+# Tokio Related Crates
 async-trait = "0.1"
 futures = { version = "0.3.30", optional = true }
 tokio = { version = "*", features = ["fs", "io-util"], optional = true }
 tokio-util = { version = "0.7.10", features = ["io"], optional = true }
 bytes = "1.6.0"
+quote = "1.0.36"
+syn = "2.0.74"
 
 [features]
-default = []
+default = ["wayland-niri"]
 ftokio = ["tokio", "tokio-util", "futures"]
 fratatui = ["crossterm"]
+wayland-niri = []

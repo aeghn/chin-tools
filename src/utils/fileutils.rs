@@ -14,8 +14,9 @@ use futures::{Stream, TryStreamExt};
 
 #[cfg(feature = "ftokio")]
 use bytes::Bytes;
-
+#[cfg(feature = "ftokio")]
 use std::path::Path;
+#[cfg(feature = "ftokio")]
 use std::path::PathBuf;
 
 #[cfg(feature = "ftokio")]
