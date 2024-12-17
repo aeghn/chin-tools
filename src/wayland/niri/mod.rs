@@ -46,7 +46,9 @@ impl Window {
     }
 
     pub fn focus(&self) -> AResult<()> {
-        json_output(niri_action!().args(["focus-window", &format!("{}", self.id)]))
+        
+        json_output(niri_action!().args(["focus-window", "--id", &format!("{}", self.id)]))
+            
     }
 }
 
@@ -56,8 +58,8 @@ impl Workspace {
         json_output(niri_msg!().arg("workspaces"))
     }
 
-    pub fn focus_workspace(workspace: Workspace) -> AResult<()> {
-        json_output(niri_action!().args(["focus-workspace", &format!("{}", workspace.id)]))
+    pub fn focus(&self) -> AResult<()> {
+        json_output(niri_action!().args(["focus-workspace", &format!("{}", self.id)]))
     }
 
     pub fn get_focused() -> AResult<Workspace> {

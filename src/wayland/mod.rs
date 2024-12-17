@@ -82,7 +82,7 @@ impl WLWindow {
     pub fn focus(&self) -> AResult<()> {
         match self {
             WLWindow::Niri(window) => {
-                window.focus()?;
+               window.focus()?
             }
         }
 
@@ -100,6 +100,24 @@ impl WLWindow {
             WLWindow::Niri(window) => window.app_id.clone(),
         }
     }
+
+    pub fn get_id(&self) -> u64 {
+        match self {
+            WLWindow::Niri(window) => window.id,
+        }
+    }
+
+    pub fn is_focused(&self) -> bool {
+        match self {
+            WLWindow::Niri(window) => window.is_focused,
+        }
+    }
+
+    pub fn get_workspace_id(&self) -> Option<u64> {
+        match self {
+            WLWindow::Niri(window) => window.workspace_id,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -109,6 +127,11 @@ pub enum WLWorkspace {
 
 impl WLWorkspace {
     pub fn focus(&self) -> AResult<()> {
+        match self {
+            WLWorkspace::Niri(w) => {
+                let _ = w.focus();
+            }
+        }
         Ok(())
     }
 
@@ -170,6 +193,8 @@ pub enum WLEvent {
     WorkspaceChanged(WLWorkspace),
     WorkspaceFocused(WLWorkspace),
     WindowFocused(Option<WLWindow>),
+    WindowDeleted(u64),
+    WindowOverwrite(WLWindow),
     MonitorFocused(WLOutput),
 }
 
@@ -210,7 +235,6 @@ pub fn into_wl_event(
         }
         niri::model::Event::WorkspaceActivated { id, focused } => {
             if focused {
-                tracing::error!("all workspace ids: {:?}", all_workspaces.keys());
                 all_workspaces
                     .get(&id)
                     .map(|e| vec![WLEvent::WorkspaceFocused(WLWorkspace::Niri(e.clone()))])
@@ -220,30 +244,33 @@ pub fn into_wl_event(
         }
         niri::model::Event::WorkspaceActiveWindowChanged {
             workspace_id: _,
-            active_window_id,
+            active_window_id: _,
         } => {
-            if let Some(wid) = active_window_id {
-                let items = WLEvent::WindowFocused(
-                    all_windows.get(&wid).map(|e| WLWindow::Niri(e.clone())),
-                );
-                Some(vec![items])
-            } else {
-                None
-            }
+            None
         }
         niri::model::Event::WindowsChanged { windows } => {
-            for win in windows {
-                all_windows.insert(win.id, win);
+            let mut events = vec![];
+            for win in windows {                
+                all_windows.insert(win.id, win.clone());
+
+                events.push(WLEvent::WindowOverwrite(WLWindow::Niri(win)));
             }
-            None
+            Some(events)
         }
         niri::model::Event::WindowOpenedOrChanged { window } => {
-            all_windows.insert(window.id, window);
-            None
+            let mut events = vec![];
+            if let Some(win) = all_windows.remove(&window.id) {
+                if win.workspace_id != window.workspace_id {
+                    events.push(WLEvent::WindowDeleted(win.id));
+                }
+            }
+            all_windows.insert(window.id, window.clone());
+            events.push(WLEvent::WindowOverwrite(WLWindow::Niri(window)));
+            Some(events)
         }
         niri::model::Event::WindowClosed { id } => {
             all_windows.remove(&id);
-            None
+            Some(vec![WLEvent::WindowDeleted(id)])
         }
         niri::model::Event::WindowFocusChanged { id } => {
             if let Some(id) = id {
@@ -261,22 +288,5 @@ pub fn into_wl_event(
             keyboard_layouts: _,
         } => None,
         niri::model::Event::KeyboardLayoutSwitched { idx: _ } => None,
-    }
-}
-
-#[derive(Debug)]
-pub struct CurrentStatus {
-    pub workspace: WLWorkspace,
-    pub output: WLOutput,
-    pub window: Option<WLWindow>,
-}
-
-impl CurrentStatus {
-    pub fn new(com: WLCompositor) -> AResult<Self> {
-        Ok(Self {
-            workspace: com.get_focused_workspace()?,
-            output: com.get_focused_output()?,
-            window: com.get_focused_window(),
-        })
     }
 }
