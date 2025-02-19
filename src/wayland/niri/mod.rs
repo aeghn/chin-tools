@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use model::{Output, Window, Workspace};
 use serde::de::DeserializeOwned;
 
-use crate::wrapper::anyhow::AResult;
+use crate::wrapper::anyhow::{AResult, EResult};
 
 pub mod event_stream;
 pub mod model;
@@ -45,21 +45,18 @@ impl Window {
         json_output(niri_msg!().arg("focused-window"))
     }
 
-    pub fn focus(&self) -> AResult<()> {
-        
+    pub fn focus(&self) -> EResult {
         json_output(niri_action!().args(["focus-window", "--id", &format!("{}", self.id)]))
-            
     }
 }
-
 
 impl Workspace {
     pub fn get_all() -> AResult<Vec<Self>> {
         json_output(niri_msg!().arg("workspaces"))
     }
 
-    pub fn focus(&self) -> AResult<()> {
-        json_output(niri_action!().args(["focus-workspace", &format!("{}", self.id)]))
+    pub fn focus(&self) -> EResult {
+        json_output(niri_action!().args(["focus-workspace", &format!("{}", self.idx)]))
     }
 
     pub fn get_focused() -> AResult<Workspace> {
@@ -70,8 +67,6 @@ impl Workspace {
         })
     }
 }
-
-
 
 impl Output {
     pub fn get_all() -> AResult<Vec<Output>> {

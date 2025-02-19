@@ -1,26 +1,18 @@
-#[cfg(feature = "ftokio")]
 use tokio::{
     fs::File,
     io::{self, BufWriter},
 };
-#[cfg(feature = "ftokio")]
 use tokio_util::io::ReaderStream;
 
-#[cfg(feature = "ftokio")]
 use crate::wrapper::anyhow::AResult;
 
-#[cfg(feature = "ftokio")]
 use futures::{Stream, TryStreamExt};
 
-#[cfg(feature = "ftokio")]
 use bytes::Bytes;
-#[cfg(feature = "ftokio")]
 use std::path::Path;
-#[cfg(feature = "ftokio")]
 use std::path::PathBuf;
 
-#[cfg(feature = "ftokio")]
-pub async fn stream_to_file_async<S>(stream: S, save_file: &PathBuf) -> AResult<()>
+pub async fn stream_to_file_async<S>(stream: S, save_file: &PathBuf) -> EResult
 where
     S: Stream<Item = AResult<Bytes>>,
 {
@@ -40,7 +32,7 @@ where
 
     Ok(())
 }
-#[cfg(feature = "ftokio")]
+
 pub async fn file_to_stream_async(filepath: &impl AsRef<Path>) -> AResult<ReaderStream<File>> {
     use crate::log_and_err;
 

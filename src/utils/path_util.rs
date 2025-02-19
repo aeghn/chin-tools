@@ -7,7 +7,7 @@ pub fn split_uuid_to_file_name(uuid: &str) -> (String, String, String) {
     (trimed[0..2].into(), trimed[2..4].into(), trimed[4..].into())
 }
 
-pub fn append_from_path(pathbuf: &mut PathBuf, uuid: &str) {
+pub fn append_uuid_to_path(pathbuf: &mut PathBuf, uuid: &str) {
     let (p1, p2, p3) = split_uuid_to_file_name(uuid);
 
     pathbuf.push(p1.as_str());
@@ -15,17 +15,9 @@ pub fn append_from_path(pathbuf: &mut PathBuf, uuid: &str) {
     pathbuf.push(p3.as_str());
 }
 
-pub fn join_from_path(pathbuf: &PathBuf, uuid: &str) -> PathBuf {
-    let mut pathbuf = pathbuf.clone();
-
-    append_from_path(&mut pathbuf, uuid);
-
-    return pathbuf;
-}
-
 #[cfg(test)]
 mod test {
-    use crate::utils::pathutils::split_uuid_to_file_name;
+    use crate::utils::path_util::split_uuid_to_file_name;
 
     #[test]
     fn test() {

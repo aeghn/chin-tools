@@ -2,6 +2,7 @@ use hashbrown::HashMap;
 use std::collections::HashSet;
 
 use crate::wrapper::anyhow::AResult;
+use crate::EResult;
 
 #[cfg(feature = "wayland-niri")]
 pub mod niri;
@@ -22,7 +23,7 @@ impl WLCompositor {
         } else if let Ok(_) = std::env::var("NIRI_SOCKET") {
             return Ok(Self::Niri);
         } else {
-            Err(anyhow!("unknown not implemented"))
+            Err(anyhow!("unknown wm not implemented"))
         }
     }
 
@@ -79,7 +80,7 @@ pub enum WLWindow {
 }
 
 impl WLWindow {
-    pub fn focus(&self) -> AResult<()> {
+    pub fn focus(&self) -> EResult {
         match self {
             WLWindow::Niri(window) => {
                window.focus()?
@@ -126,7 +127,7 @@ pub enum WLWorkspace {
 }
 
 impl WLWorkspace {
-    pub fn focus(&self) -> AResult<()> {
+    pub fn focus(&self) -> EResult {
         match self {
             WLWorkspace::Niri(w) => {
                 let _ = w.focus();
@@ -174,8 +175,9 @@ pub enum WLOutput {
     Niri(NiriOutput),
 }
 
+
 impl WLOutput {
-    pub fn focus(&self) -> AResult<()> {
+    pub fn focus(&self) -> EResult {
         Ok(())
     }
 
