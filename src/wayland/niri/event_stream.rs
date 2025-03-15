@@ -24,7 +24,7 @@ where
 
     let reader = BufReader::new(stdout);
 
-    tracing::error!("begin to read niri stream");
+    tracing::info!("begin to read niri stream");
     reader
         .lines()
         .filter_map(|line| line.ok())
