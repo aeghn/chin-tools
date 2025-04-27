@@ -1,9 +1,10 @@
 use std::borrow::Cow;
 
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, Utc};
 
-use crate::wrapper::shared_str::SharedStr;
+use chin_tools_base::SharedStr;
 
+#[derive(Clone, Debug)]
 pub enum SqlValue<'a> {
     I8(i8),
     I16(i16),
@@ -12,6 +13,7 @@ pub enum SqlValue<'a> {
     Str(Cow<'a, str>),
     SharedStr(SharedStr),
     Date(Cow<'a, DateTime<FixedOffset>>),
+    DateUtc(Cow<'a, DateTime<Utc>>),
     Bool(bool),
     Opt(Option<Box<SqlValue<'a>>>),
 }
@@ -112,6 +114,7 @@ mod postgres {
                 SqlValue::I64(v) => v,
                 SqlValue::Str(v) => v,
                 SqlValue::Date(v) => v.as_ref(),
+                SqlValue::DateUtc(v) => v.as_ref(),
                 SqlValue::Bool(v) => v,
                 SqlValue::Opt(v) => match v {
                     Some(v) => v.as_ref().into(),

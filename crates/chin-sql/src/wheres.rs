@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
-use super::{place_hoder::PlaceHolderType, sql_builder::SqlSeg, sql_value::SqlValue};
-
+use super::{SqlSeg, place_hoder::PlaceHolderType, sql_value::SqlValue};
 
 pub enum WhereConjOp {
     And,

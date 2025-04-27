@@ -1,0 +1,18 @@
+[package]
+name = "chin-sql"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+
+[dependencies]
+thiserror = "*"
+chrono = "*"
+
+chin-tools-base = { path = "../chin-tools-base" }
+chin-sql-derive = { path = "../chin-sql-derive" }
+
+postgres-types = { version = "0.2.9", optional = true }
+
+[features]
+postgres = ["postgres-types"]

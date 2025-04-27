@@ -1,4 +1,4 @@
-use super::{place_hoder::PlaceHolderType, sql_builder::SqlSeg, sql_value::SqlValue, wheres::Wheres};
+use super::{SqlSeg, place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
 pub struct SqlUpdater<'a> {
     table: &'a str,
