@@ -32,13 +32,16 @@ pub(crate) fn generate_table_sql(input: TokenStream) -> TokenStream {
     };
 
     let mut table_name = String::new();
-    name.to_string().chars().for_each(|e| {
-        if e.is_uppercase() {
-            if table_name.len() > 0 {
-                table_name.push('_');
-            }
+    let mut last_down = false;
+    let mut ll_down = false;
+    name.to_string().chars().rev().for_each(|e| {
+        if ll_down && !last_down {
+            table_name.insert(0, '_');
         }
-        table_name.push(e.to_ascii_lowercase());
+        table_name.insert(0, e.to_ascii_lowercase());
+        
+        ll_down = last_down;
+        last_down = !e.is_uppercase();
     });
 
     let fields = fields.iter().collect();

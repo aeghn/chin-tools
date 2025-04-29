@@ -1,3 +1,7 @@
+use chin_tools_base::DbType;
+
+use crate::{ChinSqlError, IntoSqlSeg};
+
 use super::{SqlSeg, place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
 pub struct SqlUpdater<'a> {
@@ -45,10 +49,16 @@ impl<'a> SqlUpdater<'a> {
         self.wheres = wheres;
         self
     }
+}
 
-    pub fn build(self, mut value_type: PlaceHolderType) -> Option<SqlSeg<'a>> {
+impl<'a> IntoSqlSeg<'a> for SqlUpdater<'a> {
+    fn into_sql_seg2(
+        self,
+        db_type: DbType,
+        pht: &mut PlaceHolderType,
+    ) -> Result<SqlSeg<'a>, ChinSqlError> {
         if self.setters.is_empty() {
-            return None;
+            return Err(ChinSqlError::BuilderSqlError);
         }
 
         let mut sb = String::new();
@@ -63,18 +73,18 @@ impl<'a> SqlUpdater<'a> {
             .into_iter()
             .map(|(key, v)| {
                 values.push(v);
-                format!(" {} = {} ", key, value_type.next())
+                format!(" {} = {} ", key, pht.next())
             })
             .collect();
         sb.push_str(fields.join(", ").as_str());
 
-        if let Some(filters) = self.wheres.build(&mut value_type) {
+        if let Some(filters) = self.wheres.build( db_type, pht) {
             sb.push_str(" where ");
             sb.push_str(filters.seg.as_str());
 
             values.extend(filters.values);
         }
 
-        Some(SqlSeg { seg: sb, values })
+        Ok(SqlSeg::of(sb, values))
     }
 }

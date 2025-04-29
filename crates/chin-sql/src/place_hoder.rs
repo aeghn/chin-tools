@@ -1,3 +1,7 @@
+use std::borrow::Cow;
+
+use crate::SqlValue;
+
 pub enum PlaceHolderType {
     QustionMark,
     DollarNumber(i32),
@@ -20,5 +24,29 @@ impl PlaceHolderType {
                 format!("${}", n)
             }
         }
+    }
+}
+
+pub enum SegOrVal<'a> {
+    Str(Cow<'a, str>),
+    Val(SqlValue<'a>)
+}
+
+
+impl<'a> From<&'a str> for SegOrVal<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Str(Cow::Borrowed(value))
+    }
+}
+
+impl<'a> From<String> for SegOrVal<'a> {
+    fn from(value: String) -> Self {
+        Self::Str(Cow::Owned(value))
+    }
+}
+
+impl <'a> From<SqlValue<'a>> for SegOrVal<'a> {
+    fn from(value: SqlValue<'a>) -> Self {
+        Self::Val(value)
     }
 }

@@ -1,8 +1,8 @@
-use crate::{ChinSqlError, IntoSqlSeg, SqlSeg};
+use crate::{ChinSqlError, IntoSqlSeg, SegOrVal, SqlSeg};
 
 use super::{place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
-pub trait CustomSqlSeg<'a> {
+pub trait CustomSqlSeg<'a>: Send {
     fn build(&self, value_type: &mut PlaceHolderType) -> Option<SqlSeg<'a>>;
 }
 
@@ -10,7 +10,7 @@ pub enum SqlSegType<'a> {
     Where(Wheres<'a>),
     Comma(Vec<&'a str>),
     Raw(&'a str),
-    RawWithArgs(SqlSeg<'a>),
+    SegOrVal(SegOrVal<'a>),
     RawOwned(String),
     Custom(Box<dyn CustomSqlSeg<'a>>),
     Sub {
@@ -37,16 +37,9 @@ impl<'a> SqlSegBuilder<'a> {
         self.segs.push(SqlSegType::Raw(seg));
         self
     }
-    pub fn raw_owned(mut self, seg: String) -> Self {
-        self.segs.push(SqlSegType::RawOwned(seg));
-        self
-    }
 
-    pub fn raw_args<T: Into<SqlValue<'a>>>(mut self, seg: String, args: Vec<T>) -> Self {
-        self.segs.push(SqlSegType::RawWithArgs(SqlSeg {
-            seg: seg,
-            values: args.into_iter().map(|e| e.into()).collect(),
-        }));
+    pub fn sov<T: Into<SqlValue<'a>>>(mut self, sov: SegOrVal<'a>) -> Self {
+        self.segs.push(SqlSegType::SegOrVal(sov));
         self
     }
 
@@ -61,8 +54,8 @@ impl<'a> SqlSegBuilder<'a> {
         }
     }
 
-    pub fn r#where(mut self, wheres: Wheres<'a>) -> Self {
-        self.segs.push(SqlSegType::Where(wheres));
+    pub fn r#where<T: Into<Wheres<'a>>>(mut self, wheres: T) -> Self {
+        self.segs.push(SqlSegType::Where(wheres.into()));
         self
     }
 
@@ -76,65 +69,9 @@ impl<'a> SqlSegBuilder<'a> {
         self
     }
 
-    pub fn custom(mut self, custom: impl CustomSqlSeg<'a> + 'static) -> Self {
+    pub fn custom<T: CustomSqlSeg<'a> + 'static>(mut self, custom: T) -> Self {
         self.segs.push(SqlSegType::Custom(Box::new(custom)));
         self
-    }
-
-    pub fn build(self, value_type: &mut PlaceHolderType) -> Result<SqlSeg<'a>, ChinSqlError> {
-        if self.segs.is_empty() {
-            Err(ChinSqlError::BuilderSqlError)?
-        }
-
-        let mut sb = String::new();
-        let mut values: Vec<SqlValue<'a>> = Vec::new();
-
-        for seg in self.segs {
-            match seg {
-                SqlSegType::Where(wr) => {
-                    if let Some(ss) = wr.build(value_type) {
-                        sb.push_str(" where ");
-                        sb.push_str(&ss.seg);
-                        values.extend(ss.values)
-                    }
-                }
-                SqlSegType::Comma(vs) => {
-                    sb.push_str(vs.join(", ").as_str());
-                }
-                SqlSegType::Raw(raw) => {
-                    sb.push_str(&raw);
-                }
-                SqlSegType::Custom(custom) => {
-                    if let Some(cs) = custom.build(value_type) {
-                        sb.push_str(&cs.seg);
-                        values.extend(cs.values)
-                    }
-                }
-                SqlSegType::Sub { alias, query } => {
-                    if let Ok(s) = query.build(value_type) {
-                        sb.push_str(" (");
-                        sb.push_str(&s.seg);
-                        sb.push_str(") ");
-                        sb.push_str(&alias);
-                        values.extend(s.values);
-                    }
-                }
-                SqlSegType::RawOwned(raw) => {
-                    sb.push_str(raw.as_str());
-                }
-                SqlSegType::RawWithArgs(sql_seg) => {
-                    sb.push_str(" ");
-                    sb.push_str(&sql_seg.seg);
-                    sb.push_str(" ");
-                    values.extend(sql_seg.values);
-                }
-            };
-            if !sb.ends_with(" ") {
-                sb.push(' ');
-            }
-        }
-
-        Ok(SqlSeg { seg: sb, values })
     }
 }
 
@@ -171,23 +108,76 @@ impl LimitOffset {
 impl<'a> CustomSqlSeg<'a> for LimitOffset {
     fn build(&self, _: &mut PlaceHolderType) -> Option<SqlSeg<'a>> {
         match self.offset {
-            Some(v) => Some(SqlSeg {
-                seg: format!("limit {} offset {}", self.limit, v),
-                values: vec![],
-            }),
-            None => Some(SqlSeg {
-                seg: format!("limit {}", self.limit),
-                values: vec![],
-            }),
+            Some(v) => Some(SqlSeg::of(
+                format!("limit {} offset {}", self.limit, v),
+                vec![],
+            )),
+            None => Some(SqlSeg::of(format!("limit {}", self.limit), vec![])),
         }
     }
 }
 
 impl<'a> IntoSqlSeg<'a> for SqlSegBuilder<'a> {
-    fn into_sql_seg(self, db_type: chin_tools_base::DbType) -> Result<SqlSeg<'a>, ChinSqlError> {
-        match db_type {
-            chin_tools_base::DbType::Sqlite => self.build(&mut PlaceHolderType::QustionMark),
-            chin_tools_base::DbType::Postgres => self.build(&mut PlaceHolderType::DollarNumber(0)),
+    fn into_sql_seg2(
+        self,
+        db_type: chin_tools_base::DbType,
+        pht: &mut PlaceHolderType,
+    ) -> Result<SqlSeg<'a>, ChinSqlError> {
+        if self.segs.is_empty() {
+            Err(ChinSqlError::BuilderSqlError)?
         }
+
+        let mut sb = String::new();
+        let mut values: Vec<SqlValue<'a>> = Vec::new();
+
+        for seg in self.segs {
+            match seg {
+                SqlSegType::Where(wr) => {
+                    if let Some(ss) = wr.build(db_type, pht) {
+                        sb.push_str(" where ");
+                        sb.push_str(&ss.seg);
+                        values.extend(ss.values)
+                    }
+                }
+                SqlSegType::Comma(vs) => {
+                    sb.push_str(vs.join(", ").as_str());
+                }
+                SqlSegType::Raw(raw) => {
+                    sb.push_str(&raw);
+                }
+                SqlSegType::Custom(custom) => {
+                    if let Some(cs) = custom.build(pht) {
+                        sb.push_str(&cs.seg);
+                        values.extend(cs.values)
+                    }
+                }
+                SqlSegType::Sub { alias, query } => {
+                    if let Ok(s) = query.into_sql_seg2(db_type, pht) {
+                        sb.push_str(" (");
+                        sb.push_str(&s.seg);
+                        sb.push_str(") ");
+                        sb.push_str(&alias);
+                        values.extend(s.values);
+                    }
+                }
+                SqlSegType::RawOwned(raw) => {
+                    sb.push_str(raw.as_str());
+                }
+                SqlSegType::SegOrVal(sql_seg) => match sql_seg {
+                    SegOrVal::Str(s) => {
+                        sb.push_str(&s);
+                    }
+                    SegOrVal::Val(val) => {
+                        sb.push_str(&pht.next());
+                        values.push(val);
+                    }
+                },
+            };
+            if !sb.ends_with(" ") {
+                sb.push(' ');
+            }
+        }
+
+        Ok(SqlSeg::of(sb, values))
     }
 }

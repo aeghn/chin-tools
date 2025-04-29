@@ -1,6 +1,10 @@
 use std::borrow::Cow;
 
-use super::{SqlSeg, place_hoder::PlaceHolderType, sql_value::SqlValue};
+use chin_tools_base::DbType;
+
+use crate::{PlaceHolderType, SegOrVal, SqlSeg};
+
+use super::sql_value::SqlValue;
 
 pub enum WhereConjOp {
     And,
@@ -17,6 +21,7 @@ pub enum Wheres<'a> {
         value: SqlValue<'a>,
     }, // key, operator, value
     Raw(Cow<'a, str>),
+    SOV(Vec<SegOrVal<'a>>),
     None,
 }
 
@@ -29,11 +34,18 @@ impl<'a> Wheres<'a> {
         }
     }
 
-    pub fn ilike<T: AsRef<str>>(key: &'a str, v: T) -> Self {
-        Self::Compare {
-            key,
-            operator: "ilike",
-            value: format!("%{}%", v.as_ref()).into(),
+    pub fn ilike<T: AsRef<str>>(key: &'a str, v: T, db_type: DbType) -> Self {
+        match db_type {
+            DbType::Sqlite => Self::Compare {
+                key,
+                operator: "like",
+                value: format!("%{}%", v.as_ref()).into(),
+            },
+            DbType::Postgres => Self::Compare {
+                key,
+                operator: "ilike",
+                value: format!("%{}%", v.as_ref()).into(),
+            },
         }
     }
 
@@ -87,7 +99,15 @@ impl<'a> Wheres<'a> {
         Self::None
     }
 
-    pub fn build(self, value_type: &mut PlaceHolderType) -> Option<SqlSeg<'a>> {
+    pub fn of<T: Into<SegOrVal<'a>>>(sovs: Vec<T>) -> Self {
+        Self::SOV(sovs.into_iter().map(|e| e.into()).collect())
+    }
+
+    pub fn build(
+        self,
+        db_type: DbType,
+        value_type: &mut PlaceHolderType,
+    ) -> Option<SqlSeg<'a>> {
         let mut seg = String::new();
         let mut values: Vec<SqlValue<'a>> = Vec::new();
 
@@ -96,7 +116,7 @@ impl<'a> Wheres<'a> {
                 let vs: Vec<String> = fs
                     .into_iter()
                     .filter_map(|e| {
-                        e.build(value_type).map(|ss| {
+                        e.build(db_type, value_type).map(|ss| {
                             values.extend(ss.values);
                             ss.seg
                         })
@@ -129,7 +149,7 @@ impl<'a> Wheres<'a> {
             }
             Wheres::Not(fs) => {
                 seg.push_str(" not ( ");
-                if let Some(ss) = fs.build(value_type) {
+                if let Some(ss) = fs.build(db_type, value_type) {
                     seg.push_str(&ss.seg);
                     seg.push(')');
 
@@ -162,8 +182,21 @@ impl<'a> Wheres<'a> {
 
                 seg.push(' ');
             }
+            Wheres::SOV(seg_or_vals) => {
+                for sov in seg_or_vals {
+                    match sov {
+                        SegOrVal::Str(cow) => {
+                            seg.push_str(&cow);
+                        }
+                        SegOrVal::Val(sql_value) => {
+                            seg.push_str(&value_type.next());
+                            values.push(sql_value);
+                        }
+                    }
+                }
+            }
         }
 
-        Some(SqlSeg { seg, values })
+        Some(SqlSeg::of(seg, values))
     }
 }
