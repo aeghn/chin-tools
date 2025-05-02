@@ -47,7 +47,7 @@ impl<'a> SqlReader<'a> {
         }
     }
 
-    pub fn seg(mut self, seg: SqlReaderSeg<'a>) -> Self {
+    fn seg(mut self, seg: SqlReaderSeg<'a>) -> Self {
         self.segs.push(seg);
         self
     }

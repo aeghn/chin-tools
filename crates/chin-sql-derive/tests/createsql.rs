@@ -17,14 +17,14 @@ struct ExampleTable {
 fn table_generate() {
     assert_eq!(
         "CREATE TABLE IF NOT EXISTS example_table(id TEXT not null, create_at TEXT, create_at2 NUMERIC, PRIMARY KEY (id));",
-        ExampleTable::table_creation_sql(chin_tools_base::DbType::Sqlite)
+        ExampleTable::schema(chin_tools_base::DbType::Sqlite)
     );
     assert_eq!(
         "CREATE TABLE IF NOT EXISTS example_table(id VARCHAR(211) not null, create_at TIMESTAMPTZ, create_at2 BOOLEAN, PRIMARY KEY (id));",
-        ExampleTable::table_creation_sql(chin_tools_base::DbType::Postgres)
+        ExampleTable::schema(chin_tools_base::DbType::Postgres)
     );
 
-    assert_eq!("example_table", ExampleTable::table_name());
+    assert_eq!("example_table", ExampleTable::TABLE);
 
-    assert_eq!("create_at", ExampleTable::field_create_at())
+    assert_eq!("create_at", ExampleTable::CREATE_AT);
 }

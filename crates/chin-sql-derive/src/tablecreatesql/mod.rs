@@ -1,5 +1,7 @@
 mod fieldhandler;
 
+use std::iter;
+
 use chin_tools_base::DbType;
 use fieldhandler::field_to_sql_type;
 use proc_macro::TokenStream;
@@ -31,19 +33,7 @@ pub(crate) fn generate_table_sql(input: TokenStream) -> TokenStream {
         }
     };
 
-    let mut table_name = String::new();
-    let mut last_down = false;
-    let mut ll_down = false;
-    name.to_string().chars().rev().for_each(|e| {
-        if ll_down && !last_down {
-            table_name.insert(0, '_');
-        }
-        table_name.insert(0, e.to_ascii_lowercase());
-        
-        ll_down = last_down;
-        last_down = !e.is_uppercase();
-    });
-
+    let table_name = camel2snake(name.to_string().as_str());
     let fields = fields.iter().collect();
     let sqlite_sql = generate_sql(&fields, DbType::Sqlite, &table_name);
     let pg_sql = generate_sql(&fields, DbType::Postgres, &table_name);
@@ -51,25 +41,22 @@ pub(crate) fn generate_table_sql(input: TokenStream) -> TokenStream {
     let mut func_stream = TokenStream2::default();
     for f in fields.into_iter() {
         let field_name = f.ident.as_ref().unwrap();
-        let fname = format_ident!("field_{}", field_name);
+        let fname = format_ident!("{}", upcase(field_name.to_string().as_ref()));
         let field_name = field_name.to_string();
-        func_stream.extend(quote! { pub fn #fname() -> &'static str { #field_name } });
+        func_stream.extend(quote! { pub const #fname: &'static str = #field_name; });
     }
 
     let expanded = quote! {
         impl #name {
-            pub fn table_creation_sql(sql_type: chin_tools_base::DbType) -> &'static str {
+            pub const TABLE: &'static str = #table_name;
+            #func_stream
+
+            pub fn schema(sql_type: chin_tools_base::DbType) -> &'static str {
                 match sql_type {
                     DbType::Sqlite => #sqlite_sql,
                     DbType::Postgres => #pg_sql,
                 }
             }
-
-            pub fn table_name() -> &'static str {
-                #table_name
-            }
-
-            #func_stream
 
         }
     };
@@ -108,4 +95,25 @@ fn generate_sql(fields: &Vec<&Field>, db_type: DbType, table_name: &str) -> Stri
         "CREATE TABLE IF NOT EXISTS {}({});",
         table_name, columns_str
     )
+}
+
+fn camel2snake(name: &str) -> String {
+    let mut table_name = String::new();
+    let mut last_down = false;
+    let mut ll_down = false;
+    name.to_string().chars().rev().for_each(|e| {
+        if ll_down && !last_down {
+            table_name.insert(0, '_');
+        }
+        table_name.insert(0, e.to_ascii_lowercase());
+        
+        ll_down = last_down;
+        last_down = !e.is_uppercase();
+    });
+
+    table_name
+}
+
+fn upcase(src: &str) -> String {
+    src.chars().map(|e| {e.to_ascii_uppercase()}).collect()
 }
