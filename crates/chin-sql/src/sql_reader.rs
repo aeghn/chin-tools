@@ -6,7 +6,7 @@ pub trait CustomSqlSeg<'a>: Send {
     fn build(&self, value_type: &mut PlaceHolderType) -> Option<SqlSeg<'a>>;
 }
 
-pub enum SqlSegType<'a> {
+enum SqlReaderSeg<'a> {
     Where(Wheres<'a>),
     Comma(Vec<&'a str>),
     Raw(&'a str),
@@ -15,31 +15,50 @@ pub enum SqlSegType<'a> {
     Custom(Box<dyn CustomSqlSeg<'a>>),
     Sub {
         alias: &'a str,
-        query: SqlSegBuilder<'a>,
+        query: SqlReader<'a>,
     },
 }
 
-pub struct SqlSegBuilder<'a> {
-    segs: Vec<SqlSegType<'a>>,
+pub struct SqlReader<'a> {
+    segs: Vec<SqlReaderSeg<'a>>,
 }
 
-impl<'a> SqlSegBuilder<'a> {
+impl<'a> SqlReader<'a> {
     pub fn new() -> Self {
         Self { segs: vec![] }
     }
 
-    pub fn seg(mut self, seg: SqlSegType<'a>) -> Self {
+    pub fn read(table_name: &str, fields: &[&str]) -> Self {
+        Self {
+            segs: vec![SqlReaderSeg::RawOwned(format!(
+                "select {} from {} ",
+                fields.join(", "),
+                table_name
+            ))],
+        }
+    }
+
+    pub fn read_all(table_name: &str) -> Self {
+        Self {
+            segs: vec![SqlReaderSeg::RawOwned(format!(
+                "select * from {} ",
+                table_name
+            ))],
+        }
+    }
+
+    pub fn seg(mut self, seg: SqlReaderSeg<'a>) -> Self {
         self.segs.push(seg);
         self
     }
 
     pub fn raw(mut self, seg: &'a str) -> Self {
-        self.segs.push(SqlSegType::Raw(seg));
+        self.segs.push(SqlReaderSeg::Raw(seg));
         self
     }
 
     pub fn sov<T: Into<SqlValue<'a>>>(mut self, sov: SegOrVal<'a>) -> Self {
-        self.segs.push(SqlSegType::SegOrVal(sov));
+        self.segs.push(SqlReaderSeg::SegOrVal(sov));
         self
     }
 
@@ -55,22 +74,22 @@ impl<'a> SqlSegBuilder<'a> {
     }
 
     pub fn r#where<T: Into<Wheres<'a>>>(mut self, wheres: T) -> Self {
-        self.segs.push(SqlSegType::Where(wheres.into()));
+        self.segs.push(SqlReaderSeg::Where(wheres.into()));
         self
     }
 
     pub fn comma(mut self, values: Vec<&'a str>) -> Self {
-        self.segs.push(SqlSegType::Comma(values));
+        self.segs.push(SqlReaderSeg::Comma(values));
         self
     }
 
-    pub fn sub(mut self, alias: &'a str, query: SqlSegBuilder<'a>) -> Self {
-        self.segs.push(SqlSegType::Sub { alias, query });
+    pub fn sub(mut self, alias: &'a str, query: SqlReader<'a>) -> Self {
+        self.segs.push(SqlReaderSeg::Sub { alias, query });
         self
     }
 
     pub fn custom<T: CustomSqlSeg<'a> + 'static>(mut self, custom: T) -> Self {
-        self.segs.push(SqlSegType::Custom(Box::new(custom)));
+        self.segs.push(SqlReaderSeg::Custom(Box::new(custom)));
         self
     }
 }
@@ -117,7 +136,7 @@ impl<'a> CustomSqlSeg<'a> for LimitOffset {
     }
 }
 
-impl<'a> IntoSqlSeg<'a> for SqlSegBuilder<'a> {
+impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
     fn into_sql_seg2(
         self,
         db_type: chin_tools_base::DbType,
@@ -132,26 +151,26 @@ impl<'a> IntoSqlSeg<'a> for SqlSegBuilder<'a> {
 
         for seg in self.segs {
             match seg {
-                SqlSegType::Where(wr) => {
+                SqlReaderSeg::Where(wr) => {
                     if let Some(ss) = wr.build(db_type, pht) {
                         sb.push_str(" where ");
                         sb.push_str(&ss.seg);
                         values.extend(ss.values)
                     }
                 }
-                SqlSegType::Comma(vs) => {
+                SqlReaderSeg::Comma(vs) => {
                     sb.push_str(vs.join(", ").as_str());
                 }
-                SqlSegType::Raw(raw) => {
+                SqlReaderSeg::Raw(raw) => {
                     sb.push_str(&raw);
                 }
-                SqlSegType::Custom(custom) => {
+                SqlReaderSeg::Custom(custom) => {
                     if let Some(cs) = custom.build(pht) {
                         sb.push_str(&cs.seg);
                         values.extend(cs.values)
                     }
                 }
-                SqlSegType::Sub { alias, query } => {
+                SqlReaderSeg::Sub { alias, query } => {
                     if let Ok(s) = query.into_sql_seg2(db_type, pht) {
                         sb.push_str(" (");
                         sb.push_str(&s.seg);
@@ -160,10 +179,10 @@ impl<'a> IntoSqlSeg<'a> for SqlSegBuilder<'a> {
                         values.extend(s.values);
                     }
                 }
-                SqlSegType::RawOwned(raw) => {
+                SqlReaderSeg::RawOwned(raw) => {
                     sb.push_str(raw.as_str());
                 }
-                SqlSegType::SegOrVal(sql_seg) => match sql_seg {
+                SqlReaderSeg::SegOrVal(sql_seg) => match sql_seg {
                     SegOrVal::Str(s) => {
                         sb.push_str(&s);
                     }

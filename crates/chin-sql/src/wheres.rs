@@ -11,6 +11,13 @@ pub enum WhereConjOp {
     Or,
 }
 
+pub enum ILikeType {
+    Original,
+    RightFuzzy,
+    LeftFuzzy,
+    Fuzzy
+}
+
 pub enum Wheres<'a> {
     Conj(WhereConjOp, Vec<Wheres<'a>>),
     In(&'a str, Vec<SqlValue<'a>>),
@@ -22,6 +29,10 @@ pub enum Wheres<'a> {
     }, // key, operator, value
     Raw(Cow<'a, str>),
     SOV(Vec<SegOrVal<'a>>),
+    IIike {
+        key: &'a str,
+        value: String,
+    },
     None,
 }
 
@@ -34,23 +45,31 @@ impl<'a> Wheres<'a> {
         }
     }
 
-    pub fn ilike<T: AsRef<str>>(key: &'a str, v: T, db_type: DbType) -> Self {
-        match db_type {
-            DbType::Sqlite => Self::Compare {
-                key,
-                operator: "like",
-                value: format!("%{}%", v.as_ref()).into(),
-            },
-            DbType::Postgres => Self::Compare {
-                key,
-                operator: "ilike",
-                value: format!("%{}%", v.as_ref()).into(),
+    pub fn ilike<T: AsRef<str>>(key: &'a str, v: T, exact: ILikeType) -> Self {
+        Self::IIike {
+            key,
+            value: match exact {
+                ILikeType::Original => {
+                    v.as_ref().into()
+                },
+                ILikeType::RightFuzzy => {
+                    format!("{}%", v.as_ref()).into()
+                },
+                ILikeType::LeftFuzzy => {
+                    format!("%{}", v.as_ref()).into()
+                },
+                ILikeType::Fuzzy => {
+                    format!("%{}%", v.as_ref()).into()
+                },
             },
         }
     }
-
     pub fn is_null(key: &'a str) -> Self {
         Self::compare_str(key, "is", "null")
+    }
+
+    pub fn is_not_null(key: &'a str) -> Self {
+        Self::compare_str(key, "is not", "null")
     }
 
     pub fn compare<'b: 'a, T: Into<SqlValue<'a>>>(key: &'b str, operator: &'b str, v: T) -> Self {
@@ -103,11 +122,7 @@ impl<'a> Wheres<'a> {
         Self::SOV(sovs.into_iter().map(|e| e.into()).collect())
     }
 
-    pub fn build(
-        self,
-        db_type: DbType,
-        value_type: &mut PlaceHolderType,
-    ) -> Option<SqlSeg<'a>> {
+    pub fn build(self, db_type: DbType, value_type: &mut PlaceHolderType) -> Option<SqlSeg<'a>> {
         let mut seg = String::new();
         let mut values: Vec<SqlValue<'a>> = Vec::new();
 
@@ -193,6 +208,25 @@ impl<'a> Wheres<'a> {
                             values.push(sql_value);
                         }
                     }
+                }
+            }
+            Wheres::IIike { key, value } => {
+                let ilike = match db_type {
+                    DbType::Sqlite => Self::Compare {
+                        key,
+                        operator: "like",
+                        value: value.into(),
+                    },
+                    DbType::Postgres => Self::Compare {
+                        key,
+                        operator: "ilike",
+                        value: value.into(),
+                    },
+                };
+                let s = ilike.build(db_type, value_type);
+                if let Some(SqlSeg { seg: s, values: v }) = s {
+                    seg.push_str(s.as_str());
+                    values.extend(v);
                 }
             }
         }

@@ -1,5 +1,5 @@
 mod place_hoder;
-mod sql_builder;
+mod sql_reader;
 mod sql_deleter;
 mod sql_inserter;
 mod sql_updater;
@@ -9,7 +9,7 @@ mod wheres;
 pub use chin_sql_derive::GenerateTableSql;
 pub use chin_tools_base::DbType;
 pub use place_hoder::*;
-pub use sql_builder::*;
+pub use sql_reader::*;
 pub use sql_deleter::*;
 pub use sql_inserter::*;
 pub use sql_updater::*;
