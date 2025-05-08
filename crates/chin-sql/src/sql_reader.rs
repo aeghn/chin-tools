@@ -8,6 +8,7 @@ pub trait CustomSqlSeg<'a>: Send {
 
 enum SqlReaderSeg<'a> {
     Where(Wheres<'a>),
+    LimitOffset(LimitOffset),
     Comma(Vec<&'a str>),
     Raw(&'a str),
     SegOrVal(SegOrVal<'a>),
@@ -57,8 +58,8 @@ impl<'a> SqlReader<'a> {
         self
     }
 
-    pub fn sov<T: Into<SqlValue<'a>>>(mut self, sov: SegOrVal<'a>) -> Self {
-        self.segs.push(SqlReaderSeg::SegOrVal(sov));
+    pub fn sov<T: Into<SegOrVal<'a>>>(mut self, sov: T) -> Self {
+        self.segs.push(SqlReaderSeg::SegOrVal(sov.into()));
         self
     }
 
@@ -92,28 +93,39 @@ impl<'a> SqlReader<'a> {
         self.segs.push(SqlReaderSeg::Custom(Box::new(custom)));
         self
     }
+
+    pub fn limit(mut self, limit: usize) -> Self {
+        self.segs
+            .push(SqlReaderSeg::LimitOffset(LimitOffset::new(limit)));
+        self
+    }
+
+    pub fn limit_offset(mut self, limit: LimitOffset) -> Self {
+        self.segs.push(SqlReaderSeg::LimitOffset(limit));
+        self
+    }
 }
 
 pub struct LimitOffset {
-    limit: u64,
-    offset: Option<u64>,
+    limit: usize,
+    offset: Option<usize>,
 }
 
 impl LimitOffset {
-    pub fn new(limit: u64) -> Self {
+    pub fn new(limit: usize) -> Self {
         Self {
             limit,
             offset: None,
         }
     }
 
-    pub fn offset(mut self, offset: u64) -> Self {
+    pub fn offset(mut self, offset: usize) -> Self {
         self.offset.replace(offset);
 
         self
     }
 
-    pub fn offset_if_some(mut self, offset: Option<u64>) -> Self {
+    pub fn offset_if_some(mut self, offset: Option<usize>) -> Self {
         self.offset = offset;
 
         self
@@ -191,6 +203,15 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
                         values.push(val);
                     }
                 },
+                SqlReaderSeg::LimitOffset(limit_offset) => {
+                    let SqlSeg { seg, values: vs } = limit_offset
+                        .build(pht)
+                        .ok_or(ChinSqlError::TransformError(
+                            "Unable convert limit offset to sql seg.".to_owned(),
+                        ))?;
+                    sb.push_str(&seg);
+                    values.extend(vs);
+                }
             };
             if !sb.ends_with(" ") {
                 sb.push(' ');

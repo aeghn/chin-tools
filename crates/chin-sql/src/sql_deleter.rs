@@ -38,6 +38,8 @@ impl<'a> IntoSqlSeg<'a> for SqlDeleter<'a> {
             sb.push_str(filters.seg.as_str());
 
             values.extend(filters.values);
+        } else {
+            Err(ChinSqlError::FilterBuildError(format!("filter_is_empty")))?
         }
 
         Ok(SqlSeg::of(sb, values))

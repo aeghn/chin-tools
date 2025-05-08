@@ -182,6 +182,7 @@ dependencies = [
  "crossterm",
  "futures",
  "hashbrown",
+ "niri-ipc",
  "serde",
  "serde_json",
  "strum",
@@ -538,6 +539,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3be647b768db090acb35d5ec5db2b0e1f1de11133ca123b9eacf5137868f892a"
 dependencies = [
  "adler2",
+]
+
+[[package]]
+name = "niri-ipc"
+version = "25.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01515d0a7e73f1f3bd0347100542c4c3f6ebc280688add12e7ed2af4c35af4fb"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

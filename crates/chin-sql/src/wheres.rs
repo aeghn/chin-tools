@@ -15,7 +15,31 @@ pub enum ILikeType {
     Original,
     RightFuzzy,
     LeftFuzzy,
-    Fuzzy
+    Fuzzy,
+}
+
+pub struct FilterCount {
+    pub check_filter_count: bool,
+    pub filter_count: usize,
+}
+
+impl FilterCount {
+    pub fn new() -> Self {
+        Self {
+            check_filter_count: true,
+            filter_count: 0,
+        }
+    }
+
+    pub fn increament(self) -> Self {
+        Self {
+            filter_count: self.filter_count + 1,
+            ..self
+        }
+    }
+    pub fn check(&self) -> bool {
+        self.check_filter_count && self.filter_count > 0
+    }
 }
 
 pub enum Wheres<'a> {
@@ -49,18 +73,10 @@ impl<'a> Wheres<'a> {
         Self::IIike {
             key,
             value: match exact {
-                ILikeType::Original => {
-                    v.as_ref().into()
-                },
-                ILikeType::RightFuzzy => {
-                    format!("{}%", v.as_ref()).into()
-                },
-                ILikeType::LeftFuzzy => {
-                    format!("%{}", v.as_ref()).into()
-                },
-                ILikeType::Fuzzy => {
-                    format!("%{}%", v.as_ref()).into()
-                },
+                ILikeType::Original => v.as_ref().into(),
+                ILikeType::RightFuzzy => format!("{}%", v.as_ref()).into(),
+                ILikeType::LeftFuzzy => format!("%{}", v.as_ref()).into(),
+                ILikeType::Fuzzy => format!("%{}%", v.as_ref()).into(),
             },
         }
     }
@@ -148,15 +164,13 @@ impl<'a> Wheres<'a> {
                 seg.push_str(vs.join(op).as_str())
             }
             Wheres::In(key, fs) => {
+                tracing::info!("print: {:?}, {:?}", key, fs);
                 seg.push_str(key);
                 seg.push_str(" in (");
                 let vs = fs
                     .iter()
                     .map(|_| value_type.next())
                     .collect::<Vec<String>>();
-                if fs.len() == 0 {
-                    return None;
-                }
                 seg.push_str(vs.join(",").as_str());
 
                 seg.push_str(")");

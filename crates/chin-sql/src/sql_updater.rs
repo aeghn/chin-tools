@@ -1,6 +1,6 @@
 use chin_tools_base::DbType;
 
-use crate::{ChinSqlError, IntoSqlSeg};
+use crate::{ChinSqlError, FilterCount, IntoSqlSeg};
 
 use super::{SqlSeg, place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
@@ -8,6 +8,7 @@ pub struct SqlUpdater<'a> {
     table: &'a str,
     setters: Vec<(&'a str, SqlValue<'a>)>,
     wheres: Wheres<'a>,
+    filter_count: FilterCount
 }
 
 impl<'a> SqlUpdater<'a> {
@@ -16,6 +17,7 @@ impl<'a> SqlUpdater<'a> {
             table: &table,
             setters: vec![],
             wheres: Wheres::and([]),
+            filter_count: FilterCount::new(),
         }
     }
 
@@ -78,11 +80,13 @@ impl<'a> IntoSqlSeg<'a> for SqlUpdater<'a> {
             .collect();
         sb.push_str(fields.join(", ").as_str());
 
-        if let Some(filters) = self.wheres.build( db_type, pht) {
+        if let Some(filters) = self.wheres.build(db_type, pht) {
             sb.push_str(" where ");
             sb.push_str(filters.seg.as_str());
 
             values.extend(filters.values);
+        } else {
+            Err(ChinSqlError::FilterBuildError(format!("filter_is_empty")))?
         }
 
         Ok(SqlSeg::of(sb, values))

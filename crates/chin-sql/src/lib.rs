@@ -85,4 +85,7 @@ pub enum ChinSqlError {
     BuilderSqlError,
     #[error("Cannot map to struct {0}")]
     TransformError(String),
+    #[error("Cannot build sql {0}")]
+    FilterBuildError(String),
+    
 }
