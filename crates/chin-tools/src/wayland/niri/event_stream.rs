@@ -4,10 +4,9 @@ use std::{
 };
 
 use anyhow::anyhow;
+use niri_ipc::Event;
 
 use crate::{niri_msg, wrapper::anyhow::EResult};
-
-use super::model::Event;
 
 pub fn handle_event_stream<F>(mut func: F) -> EResult
 where
@@ -49,6 +48,7 @@ mod test {
     fn read_events() {
         handle_event_stream(|e| {
             tracing::info!("{:?}", e);
-        }).unwrap();
+        })
+        .unwrap();
     }
 }
