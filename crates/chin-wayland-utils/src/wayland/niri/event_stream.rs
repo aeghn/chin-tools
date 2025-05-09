@@ -3,10 +3,10 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::anyhow;
+use chin_tools::{EResult, aanyhow};
 use niri_ipc::Event;
 
-use crate::{niri_msg, wrapper::anyhow::EResult};
+use crate::niri_msg;
 
 pub fn handle_event_stream<F>(mut func: F) -> EResult
 where
@@ -19,7 +19,7 @@ where
 
     let stdout = child
         .stdout
-        .ok_or_else(|| anyhow!("Could not capture standard output."))?;
+        .ok_or_else(|| aanyhow!("Could not capture standard output."))?;
 
     let reader = BufReader::new(stdout);
 

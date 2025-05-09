@@ -1,9 +1,8 @@
 pub mod event_stream;
 pub mod model;
 
-use std::ops::Deref;
+use std::{collections::{HashMap, HashSet}, ops::Deref};
 
-use hashbrown::{HashMap, HashSet};
 use model::*;
 use niri_ipc::Event;
 

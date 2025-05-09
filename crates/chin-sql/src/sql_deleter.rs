@@ -24,7 +24,7 @@ impl<'a> SqlDeleter<'a> {
 impl<'a> IntoSqlSeg<'a> for SqlDeleter<'a> {
     fn into_sql_seg2(
         self,
-        db_type: chin_tools_base::DbType,
+        db_type: chin_tools_types::DbType,
         pht: &mut PlaceHolderType,
     ) -> Result<SqlSeg<'a>, ChinSqlError> {
         let mut sb = String::new();

@@ -48,11 +48,6 @@ impl<'a> SqlReader<'a> {
         }
     }
 
-    fn seg(mut self, seg: SqlReaderSeg<'a>) -> Self {
-        self.segs.push(seg);
-        self
-    }
-
     pub fn raw(mut self, seg: &'a str) -> Self {
         self.segs.push(SqlReaderSeg::Raw(seg));
         self
@@ -151,7 +146,7 @@ impl<'a> CustomSqlSeg<'a> for LimitOffset {
 impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
     fn into_sql_seg2(
         self,
-        db_type: chin_tools_base::DbType,
+        db_type: chin_tools_types::DbType,
         pht: &mut PlaceHolderType,
     ) -> Result<SqlSeg<'a>, ChinSqlError> {
         if self.segs.is_empty() {

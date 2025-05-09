@@ -5,7 +5,7 @@ use std::{borrow::Cow, ops::Deref};
 
 use chrono::{DateTime, FixedOffset, Utc};
 
-use chin_tools_base::SharedStr;
+use chin_tools_types::SharedStr;
 
 #[derive(Clone, Debug)]
 pub struct ShareStr(SharedStr);

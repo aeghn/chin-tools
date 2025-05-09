@@ -3,10 +3,9 @@ use niri::NiriWindowWrapper;
 use niri_ipc::Output as NiriOutput;
 use niri_ipc::Workspace as NiriWorkspace;
 
-use crate::wrapper::anyhow::AResult;
-use crate::EResult;
+use chin_tools::AResult;
+use chin_tools::EResult;
 
-#[cfg(feature = "wayland-niri")]
 pub mod niri;
 
 pub type WLWorkspaceId = u64;

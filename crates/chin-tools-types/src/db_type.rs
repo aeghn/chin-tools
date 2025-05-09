@@ -3,3 +3,4 @@ pub enum DbType {
     Sqlite,
     Postgres,
 }
+

@@ -1,4 +1,4 @@
-use chin_tools_base::DbType;
+use chin_tools_types::DbType;
 
 use crate::{ChinSqlError, IntoSqlSeg, PlaceHolderType};
 
@@ -83,18 +83,18 @@ impl<'a> IntoSqlSeg<'a> for SqlInserter<'a> {
 
         match self.on_conflict {
             OnConflict::Ignore => match db_type {
-                chin_tools_base::DbType::Sqlite => {
+                chin_tools_types::DbType::Sqlite => {
                     sql.push_str(" ON CONFLICT DO NOTHING");
                 }
-                chin_tools_base::DbType::Postgres => {
+                chin_tools_types::DbType::Postgres => {
                     sql.push_str(" ON CONFLICT DO NOTHING");
                 }
             },
             OnConflict::Replace(cond) => match db_type {
-                chin_tools_base::DbType::Sqlite => {
+                chin_tools_types::DbType::Sqlite => {
                     sql.push_str(" ON CONFLICT IGNORE");
                 }
-                chin_tools_base::DbType::Postgres => {
+                chin_tools_types::DbType::Postgres => {
                     sql.push_str(" ON CONFLICT (");
                     sql.push_str(&cond);
                     sql.push_str(") DO UPDATE SET ");

@@ -1,7 +1,7 @@
 mod fieldhandler;
 
 
-use chin_tools_base::DbType;
+use chin_tools_types::DbType;
 use fieldhandler::field_to_sql_type;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -50,7 +50,7 @@ pub(crate) fn generate_table_sql(input: TokenStream) -> TokenStream {
             pub const TABLE: &'static str = #table_name;
             #func_stream
 
-            pub fn schema(sql_type: chin_tools_base::DbType) -> &'static str {
+            pub fn schema(sql_type: chin_sql::DbType) -> &'static str {
                 match sql_type {
                     DbType::Sqlite => #sqlite_sql,
                     DbType::Postgres => #pg_sql,

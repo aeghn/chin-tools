@@ -7,7 +7,7 @@ mod sql_value;
 mod wheres;
 
 pub use chin_sql_derive::GenerateTableSql;
-pub use chin_tools_base::DbType;
+pub use chin_tools_types::DbType;
 pub use place_hoder::*;
 pub use sql_reader::*;
 pub use sql_deleter::*;

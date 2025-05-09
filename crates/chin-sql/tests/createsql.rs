@@ -1,5 +1,5 @@
 use chin_sql_derive::GenerateTableSql;
-use chin_tools_base::DbType;
+use chin_tools_types::DbType;
 use chrono::DateTime;
 use chrono::FixedOffset;
 
@@ -17,11 +17,11 @@ struct ExampleTable {
 fn table_generate() {
     assert_eq!(
         "CREATE TABLE IF NOT EXISTS example_table(id TEXT not null, create_at TEXT, create_at2 NUMERIC, PRIMARY KEY (id));",
-        ExampleTable::schema(chin_tools_base::DbType::Sqlite)
+        ExampleTable::schema(chin_tools_types::DbType::Sqlite)
     );
     assert_eq!(
         "CREATE TABLE IF NOT EXISTS example_table(id VARCHAR(211) not null, create_at TIMESTAMPTZ, create_at2 BOOLEAN, PRIMARY KEY (id));",
-        ExampleTable::schema(chin_tools_base::DbType::Postgres)
+        ExampleTable::schema(chin_tools_types::DbType::Postgres)
     );
 
     assert_eq!("example_table", ExampleTable::TABLE);

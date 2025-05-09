@@ -1,4 +1,4 @@
-use chin_tools_base::DbType;
+use chin_tools_types::DbType;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Field, PathArguments, Type};

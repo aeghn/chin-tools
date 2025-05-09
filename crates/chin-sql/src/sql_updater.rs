@@ -1,6 +1,6 @@
-use chin_tools_base::DbType;
+use chin_tools_types::DbType;
 
-use crate::{ChinSqlError, FilterCount, IntoSqlSeg};
+use crate::{ChinSqlError, IntoSqlSeg};
 
 use super::{SqlSeg, place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
@@ -8,7 +8,6 @@ pub struct SqlUpdater<'a> {
     table: &'a str,
     setters: Vec<(&'a str, SqlValue<'a>)>,
     wheres: Wheres<'a>,
-    filter_count: FilterCount
 }
 
 impl<'a> SqlUpdater<'a> {
@@ -17,7 +16,6 @@ impl<'a> SqlUpdater<'a> {
             table: &table,
             setters: vec![],
             wheres: Wheres::and([]),
-            filter_count: FilterCount::new(),
         }
     }
 

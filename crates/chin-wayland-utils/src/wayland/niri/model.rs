@@ -1,3 +1,6 @@
+use chin_tools::AResult;
+use chin_tools::EResult;
+use chin_tools::aanyhow;
 pub use niri_ipc::Output as NiriOutput;
 pub use niri_ipc::Window as NiriWindow;
 pub use niri_ipc::Workspace as NiriWorkspace;
@@ -6,13 +9,16 @@ use std::{collections::HashMap, fmt::Debug, process::Command};
 
 use serde::de::DeserializeOwned;
 
-use crate::eanyhow;
-use crate::{
-    wayland::*,
-    wrapper::anyhow::{AResult, EResult},
-};
+use crate::wayland::WLCompositorBehavier;
+use crate::wayland::WLMonitorId;
+use crate::wayland::WLOutput;
+use crate::wayland::WLOutputBehaiver;
+use crate::wayland::WLWindowBehaiver;
+use crate::wayland::WLWorkspaceBehaiver;
+use crate::wayland::WLWorkspaceId;
 
 use super::NiriCompositor;
+use super::NiriWindowWrapper;
 
 #[macro_export]
 macro_rules! niri_msg {
@@ -34,10 +40,7 @@ where
 {
     let output = cmd.output()?;
     if !output.status.success() {
-        return Err(anyhow::anyhow!(
-            "command exited with {:?}",
-            output.status.code()
-        ));
+        return Err(aanyhow!("command exited with {:?}", output.status.code()));
     }
     let stdout = String::from_utf8_lossy(output.stdout.as_slice());
 
@@ -111,25 +114,25 @@ impl WLOutputBehaiver for NiriOutput {
 }
 
 impl WLCompositorBehavier for NiriCompositor {
-    fn fetch_all_windows(&self) -> crate::AResult<Vec<NiriWindowWrapper>> {
+    fn fetch_all_windows(&self) -> AResult<Vec<NiriWindowWrapper>> {
         json_output(Command::new("niri").arg("msg").arg("--json").arg("windows"))
             .map(|v: Vec<NiriWindow>| v.into_iter().map(|e| e.into()).collect())
     }
 
-    fn fetch_focused_window(&self) -> crate::AResult<NiriWindowWrapper> {
+    fn fetch_focused_window(&self) -> AResult<NiriWindowWrapper> {
         json_output(niri_msg!().arg("focused-window")).map(|v: NiriWindow| v.into())
     }
 
-    fn fetch_all_workspaces(&self) -> crate::AResult<Vec<NiriWorkspace>> {
+    fn fetch_all_workspaces(&self) -> AResult<Vec<NiriWorkspace>> {
         json_output(niri_msg!().arg("workspaces"))
             .map(|e: Vec<NiriWorkspace>| e.into_iter().map(|w| w.into()).collect())
     }
 
-    fn fetch_focused_workspace(&self) -> crate::AResult<NiriWorkspace> {
+    fn fetch_focused_workspace(&self) -> AResult<NiriWorkspace> {
         self.fetch_all_workspaces().and_then(|e| {
             e.into_iter()
                 .find(|e| e.is_focused())
-                .ok_or(crate::anyhow::aanyhow!("no focused workspace???"))
+                .ok_or(aanyhow!("no focused workspace???"))
         })
     }
 
@@ -142,27 +145,24 @@ impl WLCompositorBehavier for NiriCompositor {
     where
         Self: Sized,
     {
-        if let Ok(_) = std::env::var("NIRI_SOCKET") {
-            let mut instance = NiriCompositor::default();
-            let windows = instance.fetch_all_windows()?;
-            let awin = instance.fetch_focused_window().ok();
-            let workspaces = instance.fetch_all_workspaces()?;
+        let _ = std::env::var("NIRI_SOCKET")?;
+        let mut instance = NiriCompositor::default();
+        let windows = instance.fetch_all_windows()?;
+        let awin = instance.fetch_focused_window().ok();
+        let workspaces = instance.fetch_all_workspaces()?;
 
-            instance.windows = windows.into_iter().map(|e| (e.get_id(), e)).collect();
-            instance.workspaces = workspaces.into_iter().map(|e| (e.get_id(), e)).collect();
-            instance.focused_winid = awin.map(|e| e.get_id());
+        instance.windows = windows.into_iter().map(|e| (e.get_id(), e)).collect();
+        instance.workspaces = workspaces.into_iter().map(|e| (e.get_id(), e)).collect();
+        instance.focused_winid = awin.map(|e| e.get_id());
 
-            Ok(instance)
-        } else {
-            eanyhow!("unkonwn")
-        }
+        Ok(instance)
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::wayland::{
-        niri::model::{NiriWindow, NiriWorkspace},
         WLWindowBehaiver, WLWorkspaceBehaiver,
+        niri::model::{NiriWindow, NiriWorkspace},
     };
 }
