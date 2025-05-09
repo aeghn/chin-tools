@@ -1,9 +1,6 @@
-use std::usize;
-
-use niri::NiriInstance;
+use niri::NiriCompositor;
 use niri::NiriWindowWrapper;
 use niri_ipc::Output as NiriOutput;
-use niri_ipc::Window as NiriWindow;
 use niri_ipc::Workspace as NiriWorkspace;
 
 use crate::wrapper::anyhow::AResult;
@@ -16,7 +13,7 @@ pub type WLWorkspaceId = u64;
 pub type WLWindowId = u64;
 pub type WLMonitorId = String;
 
-pub type WLCompositor = NiriInstance;
+pub type WLCompositor = NiriCompositor;
 pub type WLOutput = NiriOutput;
 pub type WLWindow = NiriWindowWrapper;
 pub type WLWorkspace = NiriWorkspace;
@@ -67,7 +64,6 @@ pub enum WLEvent {
     MonitorDelete(WLMonitorId),
     MonitorOverwrite(WLOutput),
 }
-
 
 trait InnerEquals {
     fn equal(&self, o: &Self) -> bool;

@@ -3,7 +3,7 @@ pub mod model;
 
 use std::ops::Deref;
 
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use model::*;
 use niri_ipc::Event;
 
@@ -16,9 +16,8 @@ use super::{
 pub struct NiriWindowWrapper(NiriWindow);
 
 #[derive(Default)]
-pub struct NiriInstance {
+pub struct NiriCompositor {
     inited: bool,
-    focused_wsid: WLWorkspaceId,
     focused_winid: Option<WLWindowId>,
     workspaces: HashMap<WLWorkspaceId, WLWorkspace>,
     windows: HashMap<WLWorkspaceId, WLWindow>,
@@ -59,30 +58,32 @@ impl InnerEquals for NiriWindow {
     }
 }
 
-impl NiriInstance {
-    fn change_focused_workspace(&mut self, new_focused: Option<&WLWorkspace>) -> Vec<WLEvent> {
-        let mut events: Vec<_> = vec![];
-
-        if let Some(ws) = new_focused {
-            let old_focused: Vec<&mut WLWorkspace> = self
-                .workspaces
-                .values_mut()
-                .filter(|e| e.is_focused && *e != ws)
-                .collect();
-
-            if !old_focused.is_empty() {
-                for ele in old_focused {
-                    ele.is_focused = false;
-                    events.push(WLEvent::WorkspaceOverwrite(ele.clone()));
-                }
+impl NiriCompositor {
+    fn apply_workspaces(&mut self, wss: Vec<WLWorkspace>) -> Vec<WLEvent> {
+        let mut events = vec![];
+        for new in wss {
+            let old = self.workspaces.get(&new.get_id());
+            if old.map(|e| *e != new).unwrap_or(true) {
+                events.push(WLEvent::WorkspaceOverwrite(new.clone()));
+                self.workspaces.insert(new.get_id(), new);
             }
-            self.workspaces.insert(ws.get_id(), ws.clone());
-            events.push(WLEvent::WorkspaceOverwrite(ws.clone()));
-
-            self.focused_wsid = ws.get_id();
         }
 
         events
+    }
+
+    fn get_old_focused_workspaces(&self) -> Vec<WLWorkspace> {
+        let old_focused: Vec<WLWorkspace> = self
+            .workspaces
+            .values()
+            .filter(|e| e.is_focused)
+            .map(|e| WLWorkspace {
+                is_focused: false,
+                ..e.clone()
+            })
+            .collect();
+
+        old_focused
     }
 
     fn change_focused_window(
@@ -121,47 +122,49 @@ impl NiriInstance {
     }
 
     pub fn handle_event(&mut self, event: Event) -> Option<Vec<WLEvent>> {
-        let all_workspaces: &mut HashMap<WLWorkspaceId, WLWorkspace> = &mut self.workspaces;
         let all_windows: &mut HashMap<WLWorkspaceId, WLWindow> = &mut self.windows;
+
+        log::debug!("niri event {:?}", event);
+
         let mapped = match event {
             Event::WorkspacesChanged { workspaces } => {
                 let mut events: Vec<_> = vec![];
-                let mut new_focused = None;
-                for ws in workspaces.into_iter() {
-                    if ws.is_focused {
-                        new_focused.replace(ws.clone());
-                    }
-                    let ows = self.workspaces.get(&ws.get_id());
-                    if Some(&ws) != ows || ows.is_none() {
-                        self.workspaces.insert(ws.get_id(), ws.clone());
-                        events.push(WLEvent::WorkspaceOverwrite(ws));
+
+                let new_set: HashSet<_> = workspaces.iter().map(|e| e.get_id()).collect();
+                for (id, _) in &self.workspaces {
+                    if !new_set.contains(id) {
+                        events.push(WLEvent::WorkspaceDelete(id.clone()));
                     }
                 }
-                events.extend(self.change_focused_workspace(new_focused.as_ref()));
+                self.workspaces.retain(|e, _| new_set.contains(e));
+
+                events.extend(self.apply_workspaces(workspaces));
 
                 Some(events)
             }
             Event::WorkspaceActivated { id, focused } => {
-                let ows = all_workspaces.remove(&id);
+                let mut wss = vec![];
+                if focused {
+                    wss.extend(self.get_old_focused_workspaces());
+                } else {
+                    log::debug!("workspace {} focused: {}", id, focused);
+                }
 
-                let mut events: Vec<_> = vec![];
-
-                if let Some(ws) = ows {
-                    let ws1 = NiriWorkspace {
+                if let Some(ws) = self.workspaces.get(&id) {
+                    let changed = NiriWorkspace {
                         is_focused: focused,
                         ..ws.clone()
                     };
-                    if ws1 != ws {
-                        events.push(WLEvent::WorkspaceOverwrite(ws1.clone()));
-                        all_workspaces.insert(id, ws1);
-                    }
+                    wss.push(changed);
+                } else {
+                    log::warn!("new focused workspace is not existed {}", id);
                 }
 
-                Some(events)
+                Some(self.apply_workspaces(wss))
             }
             Event::WorkspaceActiveWindowChanged {
-                workspace_id,
-                active_window_id,
+                workspace_id: _,
+                active_window_id: _,
             } => None,
             Event::WindowsChanged { windows } => {
                 let mut events: Vec<_> = vec![];

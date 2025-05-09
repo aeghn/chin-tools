@@ -23,7 +23,7 @@ where
 
     let reader = BufReader::new(stdout);
 
-    tracing::info!("begin to read niri stream");
+    log::info!("begin to read niri stream");
     reader
         .lines()
         .filter_map(|line| line.ok())
@@ -32,7 +32,7 @@ where
             match event {
                 Ok(e) => func(e),
                 Err(e) => {
-                    tracing::warn!("unable to convert {} to event, {}", line, e)
+                    log::warn!("unable to convert {} to event, {}", line, e)
                 }
             }
         });
@@ -47,7 +47,7 @@ mod test {
     #[test]
     fn read_events() {
         handle_event_stream(|e| {
-            tracing::info!("{:?}", e);
+            log::info!("{:?}", e);
         })
         .unwrap();
     }

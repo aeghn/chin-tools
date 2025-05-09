@@ -12,7 +12,7 @@ use crate::{
     wrapper::anyhow::{AResult, EResult},
 };
 
-use super::NiriInstance;
+use super::NiriCompositor;
 
 #[macro_export]
 macro_rules! niri_msg {
@@ -110,7 +110,7 @@ impl WLOutputBehaiver for NiriOutput {
     }
 }
 
-impl WLCompositorBehavier for NiriInstance {
+impl WLCompositorBehavier for NiriCompositor {
     fn fetch_all_windows(&self) -> crate::AResult<Vec<NiriWindowWrapper>> {
         json_output(Command::new("niri").arg("msg").arg("--json").arg("windows"))
             .map(|v: Vec<NiriWindow>| v.into_iter().map(|e| e.into()).collect())
@@ -142,17 +142,15 @@ impl WLCompositorBehavier for NiriInstance {
     where
         Self: Sized,
     {
-        if let Ok(value) = std::env::var("NIRI_SOCKET") {
-            let mut instance = NiriInstance::default();
+        if let Ok(_) = std::env::var("NIRI_SOCKET") {
+            let mut instance = NiriCompositor::default();
             let windows = instance.fetch_all_windows()?;
             let awin = instance.fetch_focused_window().ok();
             let workspaces = instance.fetch_all_workspaces()?;
-            let aws = instance.fetch_focused_workspace()?;
 
             instance.windows = windows.into_iter().map(|e| (e.get_id(), e)).collect();
             instance.workspaces = workspaces.into_iter().map(|e| (e.get_id(), e)).collect();
             instance.focused_winid = awin.map(|e| e.get_id());
-            instance.focused_wsid = aws.get_id();
 
             Ok(instance)
         } else {
