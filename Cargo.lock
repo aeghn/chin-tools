@@ -182,13 +182,13 @@ dependencies = [
  "crossterm",
  "futures",
  "hashbrown",
+ "log",
  "niri-ipc",
  "serde",
  "serde_json",
  "strum",
  "tokio",
  "tokio-util",
- "tracing",
  "uuid",
 ]
 

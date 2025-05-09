@@ -146,7 +146,7 @@ where
     }
 
     if !ele_vec.is_empty() {
-        tracing::error!("There are some single nodes in the vec");
+        log::error!("There are some single nodes in the vec");
     }
 
     let mut result = filled.into_values().collect();

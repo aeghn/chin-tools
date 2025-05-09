@@ -164,7 +164,7 @@ impl<'a> Wheres<'a> {
                 seg.push_str(vs.join(op).as_str())
             }
             Wheres::In(key, fs) => {
-                tracing::info!("print: {:?}, {:?}", key, fs);
+                log::info!("print: {:?}, {:?}", key, fs);
                 seg.push_str(key);
                 seg.push_str(" in (");
                 let vs = fs

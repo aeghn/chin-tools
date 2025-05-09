@@ -1,6 +1,5 @@
 mod fieldhandler;
 
-use std::iter;
 
 use chin_tools_base::DbType;
 use fieldhandler::field_to_sql_type;

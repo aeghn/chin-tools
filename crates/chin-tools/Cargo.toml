@@ -8,7 +8,7 @@ anyhow = "1.0.95"
 hashbrown = "0.15.1"
 
 # Logging info
-tracing = "0.1.40"
+log = "0.4.27"
 
 chrono = { version = "0.4.35", features = ["serde"] }
 uuid = { version = "1.13.0", features = ["serde", "v4"] }
