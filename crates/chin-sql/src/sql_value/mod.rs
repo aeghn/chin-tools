@@ -1,17 +1,20 @@
 #[cfg(feature = "sqlite")]
 mod sqlite;
 
+#[cfg(feature = "postgres")]
+mod postgres;
+
 use std::{borrow::Cow, ops::Deref};
 
 use chrono::{DateTime, FixedOffset, Utc};
 
-use chin_tools_types::SharedStr;
+type SStr = chin_tools_types::SharedStr;
 
 #[derive(Clone, Debug)]
-pub struct ShareStr(SharedStr);
+pub struct SharedStr(SStr);
 
-impl Deref for ShareStr {
-    type Target = SharedStr;
+impl Deref for SharedStr {
+    type Target = SStr;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -19,15 +22,15 @@ impl Deref for ShareStr {
 }
 
 #[derive(Clone, Debug)]
-pub struct DateFixed(DateTime<FixedOffset>);
+pub struct DateFixedOffset(DateTime<FixedOffset>);
 
-impl From<DateTime<FixedOffset>> for DateFixed {
+impl From<DateTime<FixedOffset>> for DateFixedOffset {
     fn from(value: DateTime<FixedOffset>) -> Self {
         Self(value)
     }
 }
 
-impl Deref for DateFixed {
+impl Deref for DateFixedOffset {
     type Target = DateTime<FixedOffset>;
 
     fn deref(&self) -> &Self::Target {
@@ -40,15 +43,17 @@ pub struct DateUtc(DateTime<Utc>);
 
 #[derive(Clone, Debug)]
 pub enum SqlValue<'a> {
+    Bool(bool),
     I8(i8),
     I16(i16),
     I32(i32),
     I64(i64),
+    F64(f64),
     Str(Cow<'a, str>),
-    SharedStr(ShareStr),
-    Date(DateFixed),
-    DateUtc(DateUtc),
-    Bool(bool),
+    SharedStr(SharedStr),
+    FixedOffset(DateFixedOffset),
+    Utc(DateUtc),
+    Blob(Cow<'a, [u8]>),
     Opt(Option<Box<SqlValue<'a>>>),
 }
 
@@ -72,10 +77,12 @@ impl<'a> SqlValue<'a> {
             SqlValue::I16(v) => SqlValue::I16(v),
             SqlValue::I32(v) => SqlValue::I32(v),
             SqlValue::I64(v) => SqlValue::I64(v),
-            SqlValue::Date(v) => SqlValue::Date(v),
-            SqlValue::DateUtc(v) => SqlValue::DateUtc(v),
+            SqlValue::FixedOffset(v) => SqlValue::FixedOffset(v),
+            SqlValue::Utc(v) => SqlValue::Utc(v),
             SqlValue::Bool(v) => SqlValue::Bool(v),
             SqlValue::SharedStr(v) => SqlValue::SharedStr(v),
+            SqlValue::F64(v) => SqlValue::F64(v),
+            SqlValue::Blob(cow) => SqlValue::Blob(Cow::Owned(cow.to_vec())),
         }
     }
 }
@@ -128,9 +135,9 @@ impl<'a> Into<SqlValue<'a>> for Cow<'a, str> {
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for SharedStr {
+impl<'a> Into<SqlValue<'a>> for SStr {
     fn into(self) -> SqlValue<'a> {
-        SqlValue::SharedStr(ShareStr(self))
+        SqlValue::SharedStr(SharedStr(self))
     }
 }
 
@@ -142,19 +149,19 @@ impl<'a> Into<SqlValue<'a>> for bool {
 
 impl<'a> Into<SqlValue<'a>> for DateTime<FixedOffset> {
     fn into(self) -> SqlValue<'a> {
-        SqlValue::Date(DateFixed(self))
+        SqlValue::FixedOffset(DateFixedOffset(self))
     }
 }
 
 impl<'a> Into<SqlValue<'a>> for &'a DateTime<FixedOffset> {
     fn into(self) -> SqlValue<'a> {
-        SqlValue::Date(DateFixed(*self))
+        SqlValue::FixedOffset(DateFixedOffset(*self))
     }
 }
 
 impl<'a> Into<SqlValue<'a>> for &'a DateTime<Utc> {
     fn into(self) -> SqlValue<'a> {
-        SqlValue::DateUtc(DateUtc(*self))
+        SqlValue::Utc(DateUtc(*self))
     }
 }
 
@@ -164,102 +171,5 @@ impl<'a, T: Into<SqlValue<'a>>> Into<SqlValue<'a>> for Option<T> {
             let sv: SqlValue<'a> = e.into();
             sv.into()
         }))
-    }
-}
-
-#[cfg(feature = "postgres")]
-mod postgres {
-    use std::error::Error;
-
-    use bytes::BytesMut;
-    use chrono::{DateTime, FixedOffset, Utc};
-    use postgres_types::{FromSql, ToSql, Type, accepts, to_sql_checked};
-
-    use super::{DateFixed, DateUtc, ShareStr, SqlValue};
-
-    impl ToSql for DateFixed {
-        fn to_sql(
-            &self,
-            ty: &postgres_types::Type,
-            out: &mut BytesMut,
-        ) -> Result<postgres_types::IsNull, Box<dyn std::error::Error + Sync + Send>>
-        where
-            Self: Sized,
-        {
-            self.0.to_sql(ty, out)
-        }
-
-        accepts!(TIMESTAMPTZ);
-
-        to_sql_checked!();
-    }
-
-    impl ToSql for ShareStr {
-        fn to_sql(
-            &self,
-            ty: &postgres_types::Type,
-            out: &mut BytesMut,
-        ) -> Result<postgres_types::IsNull, Box<dyn std::error::Error + Sync + Send>>
-        where
-            Self: Sized,
-        {
-            self.0.as_str().to_sql(ty, out)
-        }
-
-        fn accepts(ty: &postgres_types::Type) -> bool
-        where
-            Self: Sized,
-        {
-            <&str as ToSql>::accepts(ty)
-        }
-
-        to_sql_checked!();
-    }
-
-    impl ToSql for DateUtc {
-        fn to_sql(
-            &self,
-            ty: &postgres_types::Type,
-            out: &mut BytesMut,
-        ) -> Result<postgres_types::IsNull, Box<dyn std::error::Error + Sync + Send>>
-        where
-            Self: Sized,
-        {
-            self.0.to_sql(ty, out)
-        }
-
-        accepts!(TIMESTAMPTZ);
-        to_sql_checked!();
-    }
-
-    impl<'a> FromSql<'a> for DateFixed {
-        fn from_sql(type_: &Type, raw: &[u8]) -> Result<DateFixed, Box<dyn Error + Sync + Send>> {
-            let utc = DateTime::<Utc>::from_sql(type_, raw)?;
-            Ok(DateFixed(
-                utc.with_timezone(&FixedOffset::east_opt(0).unwrap()),
-            ))
-        }
-
-        accepts!(TIMESTAMPTZ);
-    }
-
-    impl<'a> Into<&'a (dyn ToSql + Sync + Send)> for &'a SqlValue<'a> {
-        fn into(self) -> &'a (dyn ToSql + Sync + Send) {
-            match self {
-                SqlValue::I8(v) => v,
-                SqlValue::I16(v) => v,
-                SqlValue::I32(v) => v,
-                SqlValue::I64(v) => v,
-                SqlValue::Str(v) => v,
-                SqlValue::Date(v) => v,
-                SqlValue::DateUtc(v) => v,
-                SqlValue::Bool(v) => v,
-                SqlValue::Opt(v) => match v {
-                    Some(v) => v.as_ref().into(),
-                    None => &None::<String>,
-                },
-                SqlValue::SharedStr(v) => v,
-            }
-        }
     }
 }

@@ -4,6 +4,7 @@ use chrono::DateTime;
 use chrono::FixedOffset;
 
 #[derive(GenerateTableSql)]
+#[allow(dead_code)]
 struct ExampleTable {
     #[gts_primary]
     #[gts_length = 211]

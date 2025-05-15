@@ -1,11 +1,10 @@
 mod fieldhandler;
 
-
 use chin_tools_types::DbType;
 use fieldhandler::field_to_sql_type;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote};
+use quote::{ToTokens, format_ident, quote};
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Field, Fields, parse_macro_input};
 
@@ -34,9 +33,16 @@ pub(crate) fn generate_table_sql(input: TokenStream) -> TokenStream {
 
     let table_name = camel2snake(name.to_string().as_str());
     let fields = fields.iter().collect();
-    let sqlite_sql = generate_sql(&fields, DbType::Sqlite, &table_name);
-    let pg_sql = generate_sql(&fields, DbType::Postgres, &table_name);
+    let sqlite_sql = match generate_sql(&fields, DbType::Sqlite, &table_name) {
+        Ok(ok) => ok,
+        Err(err) => return proc_macro::TokenStream::from(err.to_compile_error().to_token_stream()),
+    };
 
+    let pg_sql = match generate_sql(&fields, DbType::Postgres, &table_name) {
+        Ok(ok) => ok,
+        Err(err) => return proc_macro::TokenStream::from(err.to_compile_error().to_token_stream()),
+    };
+    
     let mut func_stream = TokenStream2::default();
     for f in fields.into_iter() {
         let field_name = f.ident.as_ref().unwrap();
@@ -63,7 +69,11 @@ pub(crate) fn generate_table_sql(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-fn generate_sql(fields: &Vec<&Field>, db_type: DbType, table_name: &str) -> String {
+fn generate_sql(
+    fields: &Vec<&Field>,
+    db_type: DbType,
+    table_name: &str,
+) -> Result<String, syn::Error> {
     let mut columns = Vec::new();
     let mut primary_keys: Vec<String> = Vec::new();
 
@@ -78,7 +88,7 @@ fn generate_sql(fields: &Vec<&Field>, db_type: DbType, table_name: &str) -> Stri
             }
         }
 
-        let column_def = format!("{} {}", column_name, column_type.unwrap());
+        let column_def = format!("{} {}", column_name, column_type?);
 
         columns.push(column_def);
     }
@@ -90,10 +100,10 @@ fn generate_sql(fields: &Vec<&Field>, db_type: DbType, table_name: &str) -> Stri
 
     let columns_str = columns.join(", ");
 
-    format!(
+    Ok(format!(
         "CREATE TABLE IF NOT EXISTS {}({});",
         table_name, columns_str
-    )
+    ))
 }
 
 fn camel2snake(name: &str) -> String {
@@ -105,7 +115,7 @@ fn camel2snake(name: &str) -> String {
             table_name.insert(0, '_');
         }
         table_name.insert(0, e.to_ascii_lowercase());
-        
+
         ll_down = last_down;
         last_down = !e.is_uppercase();
     });
@@ -114,5 +124,5 @@ fn camel2snake(name: &str) -> String {
 }
 
 fn upcase(src: &str) -> String {
-    src.chars().map(|e| {e.to_ascii_uppercase()}).collect()
+    src.chars().map(|e| e.to_ascii_uppercase()).collect()
 }

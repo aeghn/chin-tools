@@ -1,54 +1,92 @@
 use chin_tools_types::DbType;
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Field, PathArguments, Type};
+use syn::{Field, PathArguments, Type, TypePath};
 
 pub(crate) fn field_to_sql_type(field: &Field, db_type: DbType) -> Result<String, syn::Error> {
-    if let Type::Path(type_path) = &field.ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            let nullable = segment.ident.to_string().as_str() == "Option";
-            let rt = find_attr_raw_rs_type(&field);
-            let raw_rust_type;
-            if let Some(Ok(rt)) = rt {
-                raw_rust_type = rt;
-            } else {
-                raw_rust_type = if nullable {
-                    if let PathArguments::AngleBracketed(ab) = &segment.arguments {
-                        ab.args.to_token_stream().to_string()
-                    } else {
-                        return Err(syn::Error::new(field.span(), "cannot compile"));
-                    }
-                } else {
-                    segment.to_token_stream().to_string()
-                };
-            }
+    match &field.ty {
+        Type::Path(type_path) => field_to_sql_type_path(field, db_type, type_path),
+        Type::Group(group) => match group.elem.as_ref() {
+            Type::Path(type_path) => field_to_sql_type_path(field, db_type, type_path),
+            v => Err(syn::Error::new(
+                field.span(),
+                format!(
+                    "Error compling, not ty type in group {:#?}, true is {:#?}",
+                    field.to_token_stream().to_string(),
+                    v
+                ), 
+            )),
+        },
+        v => Err(syn::Error::new(
+            field.span(),
+            format!(
+                "Error compling, not ty type {:#?}, true is {:#?}",
+                field.to_token_stream().to_string(),
+                v
+            ),
+        )),
+    }
+}
 
-            let raw_rust_type = raw_rust_type.replace(" ", "").replace("\"", "");
-
-            let sql_type = match raw_rust_type.as_str() {
-                "String" => parse_str(field, db_type)?,
-                "SharedStr" => parse_str(field, db_type)?,
-                "i32" => parse_i32(db_type)?,
-                "i64" => parse_i64(db_type)?,
-                "f32" => parse_f32(db_type)?,
-                "f64" => parse_f64(db_type)?,
-                "bool" => parse_bool(db_type)?,
-                "DateTime<FixedOffset>" => parse_datetime_fixedoffset(db_type)?,
-                "DateTime<Utc>" => parse_datetime_utc(db_type)?,
-                _ => {
-                    return Err(syn::Error::new(field.span(), "unknown rust type"));
-                }
-            };
-            if nullable {
-                Ok(sql_type)
-            } else {
-                Ok(sql_type + " not null")
-            }
+fn field_to_sql_type_path(
+    field: &Field,
+    db_type: DbType,
+    type_path: &TypePath,
+) -> Result<String, syn::Error> {
+    if let Some(segment) = type_path.path.segments.last() {
+        let nullable = segment.ident.to_string().as_str() == "Option";
+        let rt = find_attr_raw_rs_type(&field);
+        let raw_rust_type;
+        if let Some(Ok(rt)) = rt {
+            raw_rust_type = rt;
         } else {
-            Err(syn::Error::new(field.span(), "cannot compile"))
+            raw_rust_type = if nullable {
+                if let PathArguments::AngleBracketed(ab) = &segment.arguments {
+                    ab.args.to_token_stream().to_string()
+                } else {
+                    return Err(syn::Error::new(
+                        field.span(),
+                        format!(
+                            "This field is optional, but there is not Generic Type {:#?}",
+                            field.to_token_stream().to_string()
+                        ),
+                    ));
+                }
+            } else {
+                segment.to_token_stream().to_string()
+            };
+        }
+
+        let raw_rust_type = raw_rust_type.replace(" ", "").replace("\"", "");
+
+        let sql_type = match raw_rust_type.as_str() {
+            "String" => parse_str(field, db_type)?,
+            "SharedStr" => parse_str(field, db_type)?,
+            "i32" => parse_i32(db_type)?,
+            "i64" => parse_i64(db_type)?,
+            "f32" => parse_f32(db_type)?,
+            "f64" => parse_f64(db_type)?,
+            "bool" => parse_bool(db_type)?,
+            "DateTime<FixedOffset>" => parse_datetime_fixedoffset(db_type)?,
+            "DateTime<Utc>" => parse_datetime_utc(db_type)?,
+            _ => Err(syn::Error::new(
+                field.span(),
+                format!("Unkown Rust Type {:#?}", raw_rust_type.as_str()),
+            ))?,
+        };
+        if nullable {
+            Ok(sql_type)
+        } else {
+            Ok(sql_type + " not null")
         }
     } else {
-        Err(syn::Error::new(field.span(), "cannot compile"))
+        Err(syn::Error::new(
+            field.span(),
+            format!(
+                "Error compling, cannot find the field ident {:#?}",
+                field.to_token_stream().to_string()
+            ),
+        ))
     }
 }
 
