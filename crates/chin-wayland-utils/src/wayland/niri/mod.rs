@@ -1,7 +1,10 @@
 pub mod event_stream;
 pub mod model;
 
-use std::{collections::{HashMap, HashSet}, ops::Deref};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Deref,
+};
 
 use model::*;
 use niri_ipc::Event;
@@ -85,30 +88,28 @@ impl NiriCompositor {
         old_focused
     }
 
-    fn change_focused_window(
-        &mut self,
-        new_focused: Option<WLWindow>,
-        handle_new: bool,
-    ) -> Vec<WLEvent> {
+    fn change_windows(&mut self, new_win: Option<WLWindow>, handle_new: bool) -> Vec<WLEvent> {
         let mut events: Vec<_> = vec![];
 
-        let old_focused: Vec<WLWindow> = self
-            .windows
-            .values()
-            .filter(|e| e.is_focused && Some(*e) != new_focused.as_ref())
-            .map(|e| e.clone())
-            .collect();
+        if new_win.as_ref().map(|e| e.is_focused).unwrap_or(false) {
+            let old_focused: Vec<WLWindow> = self
+                .windows
+                .values()
+                .filter(|e| e.is_focused && Some(*e) != new_win.as_ref())
+                .cloned()
+                .collect();
 
-        for ele in old_focused {
-            let ele = NiriWindowWrapper(NiriWindow {
-                is_focused: false,
-                ..ele.0
-            });
-            self.windows.insert(ele.get_id(), ele.clone());
-            events.push(WLEvent::WindowOverwrite(ele));
+            for ele in old_focused {
+                let ele = NiriWindowWrapper(NiriWindow {
+                    is_focused: false,
+                    ..ele.0
+                });
+                self.windows.insert(ele.get_id(), ele.clone());
+                events.push(WLEvent::WindowOverwrite(ele));
+            }
         }
 
-        if let Some(ws) = new_focused {
+        if let Some(ws) = new_win {
             if handle_new {
                 let old = self.windows.insert(ws.get_id(), ws.clone());
                 if old.as_ref() != Some(&ws) {
@@ -130,9 +131,9 @@ impl NiriCompositor {
                 let mut events: Vec<_> = vec![];
 
                 let new_set: HashSet<_> = workspaces.iter().map(|e| e.get_id()).collect();
-                for (id, _) in &self.workspaces {
+                for id in self.workspaces.keys() {
                     if !new_set.contains(id) {
-                        events.push(WLEvent::WorkspaceDelete(id.clone()));
+                        events.push(WLEvent::WorkspaceDelete(*id));
                     }
                 }
                 self.workspaces.retain(|e, _| new_set.contains(e));
@@ -171,18 +172,18 @@ impl NiriCompositor {
                 for window in windows {
                     let window: NiriWindowWrapper = window.into();
                     let ow = self.windows.get(&window.get_id());
-                    if ow.map_or(true, |e| !e.equal(&window)) {
+                    if ow.is_none_or(|e| !e.equal(&window)) {
                         self.windows.insert(window.get_id(), window.clone());
                         events.push(WLEvent::WindowOverwrite(window.clone()));
                     }
                     if window.is_focused {
-                        self.change_focused_window(Some(window), false);
+                        self.change_windows(Some(window), false);
                     }
                 }
                 Some(events)
             }
             Event::WindowOpenedOrChanged { window } => {
-                let events: Vec<WLEvent> = self.change_focused_window(Some(window.into()), true);
+                let events: Vec<WLEvent> = self.change_windows(Some(window.into()), true);
                 Some(events)
             }
             Event::WindowClosed { id } => {
@@ -195,7 +196,7 @@ impl NiriCompositor {
                     e.0.is_focused = true;
                     e
                 });
-                let events = self.change_focused_window(win, true);
+                let events = self.change_windows(win, true);
 
                 Some(events)
             }
@@ -209,10 +210,10 @@ impl NiriCompositor {
             mapped
         } else {
             let mut result = vec![];
-            for (_, w) in &self.workspaces {
+            for w in self.workspaces.values() {
                 result.push(WLEvent::WorkspaceOverwrite(w.clone()));
             }
-            for (_, w) in &self.windows {
+            for w in self.windows.values() {
                 result.push(WLEvent::WindowOverwrite(w.clone()));
             }
             if let Some(es) = mapped {

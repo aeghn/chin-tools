@@ -43,5 +43,3 @@ impl AsRef<[u8]> for SharedStr {
         self.as_bytes()
     }
 }
-
-

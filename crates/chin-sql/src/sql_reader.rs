@@ -24,6 +24,12 @@ pub struct SqlReader<'a> {
     segs: Vec<SqlReaderSeg<'a>>,
 }
 
+impl<'a> Default for SqlReader<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> SqlReader<'a> {
     pub fn new() -> Self {
         Self { segs: vec![] }
@@ -169,7 +175,7 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
                     sb.push_str(vs.join(", ").as_str());
                 }
                 SqlReaderSeg::Raw(raw) => {
-                    sb.push_str(&raw);
+                    sb.push_str(raw);
                 }
                 SqlReaderSeg::Custom(custom) => {
                     if let Some(cs) = custom.build(pht) {
@@ -182,7 +188,7 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
                         sb.push_str(" (");
                         sb.push_str(&s.seg);
                         sb.push_str(") ");
-                        sb.push_str(&alias);
+                        sb.push_str(alias);
                         values.extend(s.values);
                     }
                 }
@@ -199,9 +205,8 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
                     }
                 },
                 SqlReaderSeg::LimitOffset(limit_offset) => {
-                    let SqlSeg { seg, values: vs } = limit_offset
-                        .build(pht)
-                        .ok_or(ChinSqlError::TransformError(
+                    let SqlSeg { seg, values: vs } =
+                        limit_offset.build(pht).ok_or(ChinSqlError::TransformError(
                             "Unable convert limit offset to sql seg.".to_owned(),
                         ))?;
                     sb.push_str(&seg);

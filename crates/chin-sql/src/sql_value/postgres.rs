@@ -72,9 +72,9 @@ impl<'a> FromSql<'a> for DateFixedOffset {
     accepts!(TIMESTAMPTZ);
 }
 
-impl<'a> Into<&'a (dyn ToSql + Sync + Send)> for &'a SqlValue<'a> {
-    fn into(self) -> &'a (dyn ToSql + Sync + Send) {
-        match self {
+impl<'a> From<&'a SqlValue<'a>> for &'a (dyn ToSql + Sync + Send) {
+    fn from(val: &'a SqlValue<'a>) -> Self {
+        match val {
             SqlValue::I8(v) => v,
             SqlValue::I16(v) => v,
             SqlValue::I32(v) => v,

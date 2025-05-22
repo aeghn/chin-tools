@@ -10,7 +10,7 @@ pub struct SqlDeleter<'a> {
 impl<'a> SqlDeleter<'a> {
     pub fn new(table: &'a str) -> Self {
         SqlDeleter {
-            table: &table,
+            table,
             wheres: Wheres::and([]),
         }
     }
@@ -33,13 +33,15 @@ impl<'a> IntoSqlSeg<'a> for SqlDeleter<'a> {
         sb.push_str("delete from ");
         sb.push_str(self.table);
 
-        if let Some(filters) = self.wheres.build( db_type, pht) {
+        if let Some(filters) = self.wheres.build(db_type, pht) {
             sb.push_str(" where ");
             sb.push_str(filters.seg.as_str());
 
             values.extend(filters.values);
         } else {
-            Err(ChinSqlError::FilterBuildError(format!("filter_is_empty")))?
+            Err(ChinSqlError::FilterBuildError(
+                "filter_is_empty".to_string(),
+            ))?
         }
 
         Ok(SqlSeg::of(sb, values))

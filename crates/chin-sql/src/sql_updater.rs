@@ -13,7 +13,7 @@ pub struct SqlUpdater<'a> {
 impl<'a> SqlUpdater<'a> {
     pub fn new(table: &'a str) -> Self {
         SqlUpdater {
-            table: &table,
+            table,
             setters: vec![],
             wheres: Wheres::and([]),
         }
@@ -84,7 +84,9 @@ impl<'a> IntoSqlSeg<'a> for SqlUpdater<'a> {
 
             values.extend(filters.values);
         } else {
-            Err(ChinSqlError::FilterBuildError(format!("filter_is_empty")))?
+            Err(ChinSqlError::FilterBuildError(
+                "filter_is_empty".to_string(),
+            ))?
         }
 
         Ok(SqlSeg::of(sb, values))

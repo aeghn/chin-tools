@@ -53,11 +53,11 @@ impl WLWindowBehaiver for NiriWindow {
     }
 
     fn get_title(&self) -> Option<&str> {
-        self.title.as_ref().map(|e| e.as_str())
+        self.title.as_deref()
     }
 
     fn get_app_id(&self) -> Option<&str> {
-        self.app_id.as_ref().map(|e| e.as_str())
+        self.app_id.as_deref()
     }
 
     fn get_id(&self) -> crate::wayland::WLWindowId {
@@ -125,7 +125,7 @@ impl WLCompositorBehavier for NiriCompositor {
 
     fn fetch_all_workspaces(&self) -> AResult<Vec<NiriWorkspace>> {
         json_output(niri_msg!().arg("workspaces"))
-            .map(|e: Vec<NiriWorkspace>| e.into_iter().map(|w| w.into()).collect())
+            .map(|e: Vec<NiriWorkspace>| e.into_iter().collect())
     }
 
     fn fetch_focused_workspace(&self) -> AResult<NiriWorkspace> {
@@ -138,7 +138,7 @@ impl WLCompositorBehavier for NiriCompositor {
 
     fn fetch_all_outputs(&self) -> AResult<Vec<WLOutput>> {
         let ret: HashMap<String, WLOutput> = json_output(niri_msg!().arg("outputs"))?;
-        Ok(ret.into_iter().map(|(_, o)| o.into()).collect())
+        Ok(ret.into_values().collect())
     }
 
     fn new() -> AResult<Self>
@@ -160,9 +160,4 @@ impl WLCompositorBehavier for NiriCompositor {
 }
 
 #[cfg(test)]
-mod test {
-    use crate::wayland::{
-        WLWindowBehaiver, WLWorkspaceBehaiver,
-        niri::model::{NiriWindow, NiriWorkspace},
-    };
-}
+mod test {}

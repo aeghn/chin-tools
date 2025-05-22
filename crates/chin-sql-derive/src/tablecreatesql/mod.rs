@@ -42,7 +42,7 @@ pub(crate) fn generate_table_sql(input: TokenStream) -> TokenStream {
         Ok(ok) => ok,
         Err(err) => return proc_macro::TokenStream::from(err.to_compile_error().to_token_stream()),
     };
-    
+
     let mut func_stream = TokenStream2::default();
     for f in fields.into_iter() {
         let field_name = f.ident.as_ref().unwrap();
@@ -80,7 +80,7 @@ fn generate_sql(
     for field in fields {
         let field_name = field.ident.as_ref().unwrap();
         let column_name = field_name.to_string();
-        let column_type = field_to_sql_type(&field, db_type);
+        let column_type = field_to_sql_type(field, db_type);
 
         for attr in &field.attrs {
             if attr.path().is_ident("gts_primary") {
@@ -93,7 +93,7 @@ fn generate_sql(
         columns.push(column_def);
     }
 
-    if primary_keys.len() > 0 {
+    if !primary_keys.is_empty() {
         let pk_columns = primary_keys.join(", ");
         columns.push(format!("PRIMARY KEY ({})", pk_columns));
     }
@@ -108,17 +108,22 @@ fn generate_sql(
 
 fn camel2snake(name: &str) -> String {
     let mut table_name = String::new();
-    let mut last_down = false;
-    let mut ll_down = false;
-    name.to_string().chars().rev().for_each(|e| {
-        if ll_down && !last_down {
-            table_name.insert(0, '_');
+    let chars: Vec<char> = name.to_string().chars().collect();
+    for i in 0..chars.len() {
+        if i == 0 {
+            table_name.push(chars[i].to_ascii_lowercase());
+            continue;
         }
-        table_name.insert(0, e.to_ascii_lowercase());
 
-        ll_down = last_down;
-        last_down = !e.is_uppercase();
-    });
+        let cur = chars.get(i).unwrap();
+        let last = chars.get(i - 1).unwrap().is_ascii_uppercase();
+        let next = chars.get(i + 1).is_none_or(|c| c.is_ascii_uppercase());
+
+        if cur.is_ascii_uppercase() && (!last || !next) {
+            table_name.push('_');
+        }
+        table_name.push(cur.to_ascii_lowercase());
+    }
 
     table_name
 }

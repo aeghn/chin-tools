@@ -29,9 +29,8 @@ impl PlaceHolderType {
 
 pub enum SegOrVal<'a> {
     Str(Cow<'a, str>),
-    Val(SqlValue<'a>)
+    Val(SqlValue<'a>),
 }
-
 
 impl<'a> From<&'a str> for SegOrVal<'a> {
     fn from(value: &'a str) -> Self {
@@ -45,7 +44,7 @@ impl<'a> From<String> for SegOrVal<'a> {
     }
 }
 
-impl <'a> From<SqlValue<'a>> for SegOrVal<'a> {
+impl<'a> From<SqlValue<'a>> for SegOrVal<'a> {
     fn from(value: SqlValue<'a>) -> Self {
         Self::Val(value)
     }

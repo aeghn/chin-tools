@@ -14,7 +14,7 @@ pub(crate) fn field_to_sql_type(field: &Field, db_type: DbType) -> Result<String
                     "Error compling, not ty type in group {:#?}, true is {:#?}",
                     field.to_token_stream().to_string(),
                     v
-                ), 
+                ),
             )),
         },
         v => Err(syn::Error::new(
@@ -35,7 +35,7 @@ fn field_to_sql_type_path(
 ) -> Result<String, syn::Error> {
     if let Some(segment) = type_path.path.segments.last() {
         let nullable = segment.ident.to_string().as_str() == "Option";
-        let rt = find_attr_raw_rs_type(&field);
+        let rt = find_attr_raw_rs_type(field);
         let raw_rust_type;
         if let Some(Ok(rt)) = rt {
             raw_rust_type = rt;
@@ -98,9 +98,8 @@ fn find_attr_length(field: &Field) -> Option<Result<i32, syn::Error>> {
             let meta = &attr.meta;
             if let syn::Meta::NameValue(name_value) = meta {
                 if let syn::Expr::Lit(lit_int) = &name_value.value {
-                    match &lit_int.lit {
-                        syn::Lit::Int(lit_int) => return Some(lit_int.base10_parse()),
-                        _ => {}
+                    if let syn::Lit::Int(lit_int) = &lit_int.lit {
+                        return Some(lit_int.base10_parse());
                     }
                 }
             }
@@ -121,11 +120,8 @@ fn find_attr_raw_rs_type(field: &Field) -> Option<Result<String, syn::Error>> {
             let meta = &attr.meta;
             if let syn::Meta::NameValue(name_value) = meta {
                 if let syn::Expr::Lit(lit_int) = &name_value.value {
-                    match &lit_int.lit {
-                        syn::Lit::Str(lit_int) => {
-                            return Some(Ok(lit_int.to_token_stream().to_string()));
-                        }
-                        _ => {}
+                    if let syn::Lit::Str(lit_int) = &lit_int.lit {
+                        return Some(Ok(lit_int.to_token_stream().to_string()));
                     }
                 }
             }
@@ -142,12 +138,10 @@ fn parse_str(field: &Field, db_type: DbType) -> Result<String, syn::Error> {
     match db_type {
         DbType::Sqlite => Ok("TEXT".to_owned()),
         DbType::Postgres => {
-            if let Some(length) = find_attr_length(&field) {
+            if let Some(length) = find_attr_length(field) {
                 match length {
                     Ok(length) => Ok(format!("VARCHAR({})", length)),
-                    Err(err) => {
-                        return Err(syn::Error::new(field.span(), err.to_string()));
-                    }
+                    Err(err) => Err(syn::Error::new(field.span(), err.to_string())),
                 }
             } else {
                 Ok("TEXT".to_owned())

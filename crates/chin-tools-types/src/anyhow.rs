@@ -26,7 +26,6 @@ macro_rules! eanyhow {
     };
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::AResult;

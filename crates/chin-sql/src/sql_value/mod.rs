@@ -87,87 +87,87 @@ impl<'a> SqlValue<'a> {
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for i8 {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::I8(self)
+impl<'a> From<i8> for SqlValue<'a> {
+    fn from(val: i8) -> Self {
+        SqlValue::I8(val)
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for i16 {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::I16(self)
+impl<'a> From<i16> for SqlValue<'a> {
+    fn from(val: i16) -> Self {
+        SqlValue::I16(val)
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for i32 {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::I32(self)
+impl<'a> From<i32> for SqlValue<'a> {
+    fn from(val: i32) -> Self {
+        SqlValue::I32(val)
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for i64 {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::I64(self)
+impl<'a> From<i64> for SqlValue<'a> {
+    fn from(val: i64) -> Self {
+        SqlValue::I64(val)
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for &'a String {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::Str(Cow::Borrowed(self))
+impl<'a> From<&'a String> for SqlValue<'a> {
+    fn from(val: &'a String) -> Self {
+        SqlValue::Str(Cow::Borrowed(val))
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for &'a str {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::Str(Cow::Borrowed(self))
+impl<'a> From<&'a str> for SqlValue<'a> {
+    fn from(val: &'a str) -> Self {
+        SqlValue::Str(Cow::Borrowed(val))
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for String {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::Str(Cow::Owned(self))
+impl<'a> From<String> for SqlValue<'a> {
+    fn from(val: String) -> Self {
+        SqlValue::Str(Cow::Owned(val))
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for Cow<'a, str> {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::Str(self)
+impl<'a> From<Cow<'a, str>> for SqlValue<'a> {
+    fn from(val: Cow<'a, str>) -> Self {
+        SqlValue::Str(val)
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for SStr {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::SharedStr(SharedStr(self))
+impl<'a> From<SStr> for SqlValue<'a> {
+    fn from(val: SStr) -> Self {
+        SqlValue::SharedStr(SharedStr(val))
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for bool {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::Bool(self)
+impl<'a> From<bool> for SqlValue<'a> {
+    fn from(val: bool) -> Self {
+        SqlValue::Bool(val)
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for DateTime<FixedOffset> {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::FixedOffset(DateFixedOffset(self))
+impl<'a> From<DateTime<FixedOffset>> for SqlValue<'a> {
+    fn from(val: DateTime<FixedOffset>) -> Self {
+        SqlValue::FixedOffset(DateFixedOffset(val))
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for &'a DateTime<FixedOffset> {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::FixedOffset(DateFixedOffset(*self))
+impl<'a> From<&'a DateTime<FixedOffset>> for SqlValue<'a> {
+    fn from(val: &'a DateTime<FixedOffset>) -> Self {
+        SqlValue::FixedOffset(DateFixedOffset(*val))
     }
 }
 
-impl<'a> Into<SqlValue<'a>> for &'a DateTime<Utc> {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::Utc(DateUtc(*self))
+impl<'a> From<&'a DateTime<Utc>> for SqlValue<'a> {
+    fn from(val: &'a DateTime<Utc>) -> Self {
+        SqlValue::Utc(DateUtc(*val))
     }
 }
 
-impl<'a, T: Into<SqlValue<'a>>> Into<SqlValue<'a>> for Option<T> {
-    fn into(self) -> SqlValue<'a> {
-        SqlValue::Opt(self.map(|e| {
+impl<'a, T: Into<SqlValue<'a>>> From<Option<T>> for SqlValue<'a> {
+    fn from(val: Option<T>) -> Self {
+        SqlValue::Opt(val.map(|e| {
             let sv: SqlValue<'a> = e.into();
             sv.into()
         }))

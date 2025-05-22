@@ -22,7 +22,7 @@ pub enum OnConflict {
 impl<'a> SqlInserter<'a> {
     pub fn new(table: &'a str) -> Self {
         SqlInserter {
-            table: &table,
+            table,
             fields: vec![],
             extra: vec![],
             on_conflict: OnConflict::default(),
@@ -45,7 +45,7 @@ impl<'a> SqlInserter<'a> {
 
     pub fn on_conflict(mut self, on_conflict: OnConflict) -> Self {
         self.on_conflict = on_conflict;
-        return self;
+        self
     }
 }
 
@@ -62,7 +62,7 @@ impl<'a> IntoSqlSeg<'a> for SqlInserter<'a> {
         let mut sql = String::new();
         sql.push_str("insert into ");
         sql.push_str(self.table);
-        sql.push_str("(");
+        sql.push('(');
         sql.push_str(
             self.fields
                 .iter()
@@ -79,7 +79,7 @@ impl<'a> IntoSqlSeg<'a> for SqlInserter<'a> {
         }
 
         sql.push_str(pht_vec.join(", ").as_str());
-        sql.push_str(")");
+        sql.push(')');
 
         match self.on_conflict {
             OnConflict::Ignore => match db_type {

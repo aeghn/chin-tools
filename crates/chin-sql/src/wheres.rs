@@ -23,6 +23,12 @@ pub struct FilterCount {
     pub filter_count: usize,
 }
 
+impl Default for FilterCount {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FilterCount {
     pub fn new() -> Self {
         Self {
@@ -74,9 +80,9 @@ impl<'a> Wheres<'a> {
             key,
             value: match exact {
                 ILikeType::Original => v.as_ref().into(),
-                ILikeType::RightFuzzy => format!("{}%", v.as_ref()).into(),
-                ILikeType::LeftFuzzy => format!("%{}", v.as_ref()).into(),
-                ILikeType::Fuzzy => format!("%{}%", v.as_ref()).into(),
+                ILikeType::RightFuzzy => format!("{}%", v.as_ref()),
+                ILikeType::LeftFuzzy => format!("%{}", v.as_ref()),
+                ILikeType::Fuzzy => format!("%{}%", v.as_ref()),
             },
         }
     }
@@ -126,8 +132,7 @@ impl<'a> Wheres<'a> {
     }
 
     pub fn r#in<T: Into<SqlValue<'a>>>(key: &'a str, values: Vec<T>) -> Self {
-        let s = Self::In(key, values.into_iter().map(|e| e.into()).collect());
-        s
+        Self::In(key, values.into_iter().map(|e| e.into()).collect())
     }
 
     pub fn none() -> Self {
@@ -153,7 +158,7 @@ impl<'a> Wheres<'a> {
                         })
                     })
                     .collect();
-                if vs.len() == 0 {
+                if vs.is_empty() {
                     return None;
                 }
                 let op = match op {
@@ -173,8 +178,8 @@ impl<'a> Wheres<'a> {
                     .collect::<Vec<String>>();
                 seg.push_str(vs.join(",").as_str());
 
-                seg.push_str(")");
-                values.extend(fs.into_iter())
+                seg.push(')');
+                values.extend(fs)
             }
             Wheres::Not(fs) => {
                 seg.push_str(" not ( ");
@@ -196,9 +201,9 @@ impl<'a> Wheres<'a> {
                 value,
             } => {
                 seg.push_str(key);
-                seg.push_str(" ");
+                seg.push(' ');
                 seg.push_str(operator);
-                seg.push_str(" ");
+                seg.push(' ');
 
                 seg.push_str(&value_type.next());
                 values.push(value);
