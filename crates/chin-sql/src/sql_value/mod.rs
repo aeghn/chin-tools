@@ -4,9 +4,13 @@ mod sqlite;
 #[cfg(feature = "postgres")]
 mod postgres;
 
-use std::{borrow::Cow, ops::Deref};
+use std::{
+    borrow::{Borrow, Cow}, collections::HashMap, ops::Deref
+};
 
 use chrono::{DateTime, FixedOffset, Utc};
+
+use crate::ChinSqlError;
 
 type SStr = chin_tools_types::SharedStr;
 
@@ -57,11 +61,38 @@ pub enum SqlValue<'a> {
     Opt(Option<Box<SqlValue<'a>>>),
 }
 
+#[derive(Clone, Debug)]
 pub struct SqlValueOwned(SqlValue<'static>);
+
+#[derive(Clone, Debug)]
+pub struct SqlValueRow<T> {
+    pub row: HashMap<String, T>,
+}
+
+
+impl Deref for SqlValueOwned {
+    type Target = SqlValue<'static>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl<'a> From<SqlValue<'a>> for SqlValueOwned {
     fn from(value: SqlValue<'a>) -> Self {
         Self(value.live_static())
+    }
+}
+
+impl From<SqlValueOwned> for SqlValue<'static> {
+    fn from(value: SqlValueOwned) -> Self {
+        value.0
+    }
+}
+
+impl<'a> Borrow<SqlValue<'a>> for SqlValueOwned {
+    fn borrow(&self) -> &SqlValue<'a> {
+        &self.0
     }
 }
 
@@ -173,3 +204,69 @@ impl<'a, T: Into<SqlValue<'a>>> From<Option<T>> for SqlValue<'a> {
         }))
     }
 }
+
+macro_rules! try_from_sql_value {
+    ($tp:ty, $($variant:ident => $conv:expr),*) => {
+        impl<'a> TryFrom<SqlValue<'a>> for $tp {
+            type Error = ChinSqlError;
+
+            fn try_from(value: SqlValue<'a>) -> Result<Self, Self::Error> {
+                match value {
+                    $(
+                        SqlValue::$variant(v) => Ok($conv(v)?),
+                    )*
+                    _ => Err(ChinSqlError::TransformError(
+                        concat!("Unable to transform to ", stringify!($tp)).to_owned(),
+                    )),
+                }
+            }
+        }
+
+        impl<'a> TryFrom<SqlValue<'a>> for Option<$tp> {
+            type Error = ChinSqlError;
+
+            fn try_from(value: SqlValue<'a>) -> Result<Self, Self::Error> {
+                match value {
+                    SqlValue::Opt(v) => {
+                        if let Some(v) = v {
+                            match *v {
+                                $(
+                                    SqlValue::$variant(v) => Ok(Some($conv(v)?)),
+                                )*
+                                _ => Err(ChinSqlError::TransformError(
+                                    concat!("Unable to transform ", stringify!($tp)).to_owned(),
+                                )),
+                            }
+                        } else {
+                            Ok(None)
+                        }
+                    },
+                    $(
+                        SqlValue::$variant(v) => Ok(Some($conv(v)?)),
+                    )*
+                    _ => Err(ChinSqlError::TransformError(
+                        concat!("Unable to transform ", stringify!($tp)).to_owned(),
+                    )),
+                }
+            }
+        }
+    };
+}
+
+try_from_sql_value!(DateTime<FixedOffset>,
+    FixedOffset => |v: DateFixedOffset| Ok(*v.clone()),
+    SharedStr => |v: SharedStr| DateTime::parse_from_str(v.as_str(), "%Y-%m-%dT%H:%M:%S%.9f %z").map_err(|err| ChinSqlError::TransformError(err.to_string())),
+    Str => |v: Cow<'a, str>|  DateTime::parse_from_str(&v, "%Y-%m-%dT%H:%M:%S%.9f %z").map_err(|err| ChinSqlError::TransformError(err.to_string()))
+);
+
+try_from_sql_value!(bool, Bool => |v: bool| Ok(v));
+try_from_sql_value!(i64, I64 => |v: i64| Ok(v));
+try_from_sql_value!(i32, I32 => |v: i32| Ok(v));
+try_from_sql_value!(f64, F64 => |v: f64|Ok(v));
+try_from_sql_value!(Cow<'a, str>, Str => |v: Cow<'a, str>| Ok(v));
+try_from_sql_value!(SharedStr, SharedStr => |v: SharedStr| Ok(v));
+
+try_from_sql_value!(String,
+    SharedStr => |v: SharedStr| Ok(v.to_string()),
+    Str => |v: Cow<'a, str>| Ok(v.to_string())
+);

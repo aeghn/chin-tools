@@ -17,6 +17,7 @@ impl ToSql for DateFixedOffset {
     }
 }
 
+
 impl FromSql for DateFixedOffset {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         match value {
@@ -81,22 +82,6 @@ impl ToSql for SqlValueOwned {
         self.0.to_sql()
     }
 }
-
-/* impl FromSql for SqlValueOwned {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> FromSqlResult<Self> {
-        let result = match value {
-            rusqlite::types::ValueRef::Null => SqlValue::Opt(None),
-            rusqlite::types::ValueRef::Integer(i) => SqlValue::I64(i),
-            rusqlite::types::ValueRef::Real(r) => SqlValue::F64(r),
-            rusqlite::types::ValueRef::Text(items) => str::from_utf8(items)
-                .map(|s| SqlValue::Str(Cow::Borrowed(s)))
-                .map_err(|e| FromSqlError::Other(e.into()))?,
-            rusqlite::types::ValueRef::Blob(items) => SqlValue::Blob(Cow::Borrowed(items)),
-        };
-
-        Ok(result.live_static().into())
-    }
-} */
 
 #[cfg(test)]
 mod tests {

@@ -69,10 +69,10 @@ impl<'a> IntoSqlSeg<'a> for String {
 
 #[derive(Error, Debug)]
 pub enum ChinSqlError {
-    #[error("Cannot build sql")]
+    #[error("BuilderSqlError")]
     BuilderSqlError,
-    #[error("Cannot map to struct {0}")]
+    #[error("TransformError {0}")]
     TransformError(String),
-    #[error("Cannot build sql {0}")]
+    #[error("FilterBuildError {0}")]
     FilterBuildError(String),
 }

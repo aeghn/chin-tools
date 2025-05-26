@@ -1,0 +1,11 @@
+[package]
+name = "actor-sqlite"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+flume = "0.11.1"
+oneshot = "0.1.11"
+rusqlite.workspace = true
+chin-tools = { path = "../chin-tools" }
+chin-sql = { path = "../chin-sql" }
