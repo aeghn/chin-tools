@@ -60,7 +60,15 @@ impl<'a> IntoSqlSeg<'a> for SqlInserter<'a> {
         }
 
         let mut sql = String::new();
-        sql.push_str("insert into ");
+        sql.push_str("insert ");
+        if matches!(db_type, DbType::Sqlite) {
+            match self.on_conflict {
+                OnConflict::Ignore => sql.push_str(" or ignore "),
+                OnConflict::Replace(_) => sql.push_str(" or replace "),
+                OnConflict::Default => {}
+            }
+        }
+        sql.push_str(" into ");
         sql.push_str(self.table);
         sql.push('(');
         sql.push_str(
@@ -80,21 +88,10 @@ impl<'a> IntoSqlSeg<'a> for SqlInserter<'a> {
 
         sql.push_str(pht_vec.join(", ").as_str());
         sql.push(')');
-
-        match self.on_conflict {
-            OnConflict::Ignore => match db_type {
-                chin_tools_types::DbType::Sqlite => {
-                    sql.push_str(" ON CONFLICT DO NOTHING");
-                }
-                chin_tools_types::DbType::Postgres => {
-                    sql.push_str(" ON CONFLICT DO NOTHING");
-                }
-            },
-            OnConflict::Replace(cond) => match db_type {
-                chin_tools_types::DbType::Sqlite => {
-                    sql.push_str(" ON CONFLICT IGNORE");
-                }
-                chin_tools_types::DbType::Postgres => {
+        if matches!(db_type, DbType::Postgres) {
+            match self.on_conflict {
+                OnConflict::Ignore => sql.push_str(" ON CONFLICT DO NOTHING"),
+                OnConflict::Replace(cond) => {
                     sql.push_str(" ON CONFLICT (");
                     sql.push_str(&cond);
                     sql.push_str(") DO UPDATE SET ");
@@ -110,8 +107,8 @@ impl<'a> IntoSqlSeg<'a> for SqlInserter<'a> {
                         sql.push_str(pht);
                     }
                 }
-            },
-            OnConflict::Default => {}
+                OnConflict::Default => {}
+            }
         }
 
         let values = self.fields.into_iter().map(|e| e.1).collect();

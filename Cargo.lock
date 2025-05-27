@@ -9,6 +9,7 @@ dependencies = [
  "chin-sql",
  "chin-tools",
  "flume",
+ "log",
  "oneshot",
  "rusqlite",
 ]

@@ -43,11 +43,13 @@ impl CmdExecutor<'_> {
         match req {
             CmdReq::Exec { sql, params } => {
                 let stmt = self.prepare(&sql)?;
+
                 let res = CmdExecutor::handle_exec(stmt, params);
                 res.map(CmdResult::Exec)
             }
             CmdReq::QueryMap { sql, params } => {
                 let stmt = self.prepare(&sql)?;
+
                 let res = CmdExecutor::handle_query(stmt, params);
                 res.map(CmdResult::QueryMap)
             }
@@ -115,6 +117,7 @@ impl CmdExecutor<'_> {
 
 pub(crate) fn conn_run(conn: &mut Connection, req: RspWrapper<ConnCmdReq, ConnCmdRsp>) -> EResult {
     let RspWrapper { command, otx } = req;
+    log::debug!("conn run {:#?}", command);
 
     match command {
         ConnCmdReq::Transaction => {
@@ -126,8 +129,8 @@ pub(crate) fn conn_run(conn: &mut Connection, req: RspWrapper<ConnCmdReq, ConnCm
                 }
             };
             let (tx, rx) = flume::unbounded();
-            tx_run(tranaction, rx)?;
             otx.send(Ok(ConnCmdRsp::Tx(tx)))?;
+            tx_run(tranaction, rx)?;
         }
         ConnCmdReq::Command(cmd) => {
             let rsp = CmdExecutor::from(conn).handle(cmd)?;
@@ -145,6 +148,7 @@ pub(crate) fn tx_run<'a>(
     let executor = CmdExecutor::from(&tx);
     loop {
         let RspWrapper { command, otx } = rx.recv()?;
+        log::debug!("conn run {:#?}", command);
         match command {
             TxCmdReq::Command(cmd) => {
                 let rsp = executor.handle(cmd)?;
@@ -152,10 +156,14 @@ pub(crate) fn tx_run<'a>(
             }
             TxCmdReq::Commit => {
                 tx.commit()?;
+                otx.send(Ok(TxCmdRsp::Committed))?;
+
                 break;
             }
             TxCmdReq::Rollback => {
                 tx.rollback()?;
+                otx.send(Ok(TxCmdRsp::Rollbacked))?;
+
                 break;
             }
         }

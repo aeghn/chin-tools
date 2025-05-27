@@ -1,5 +1,5 @@
 use chin_sql::{SqlValueOwned, SqlValueRow};
-use chin_tools::{AResult, EResult};
+use chin_tools::{AResult, EResult, aanyhow};
 use flume::Sender;
 
 use crate::model::*;
@@ -26,7 +26,7 @@ impl ActorSqliteConnClient {
             .await?
         {
             ConnCmdRsp::Cmd(CmdResult::Exec(count)) => Ok(count),
-            _ => unreachable!(),
+            _ => Err(aanyhow!("Expected result: {}", "affected size")),
         }
     }
 
@@ -40,14 +40,17 @@ impl ActorSqliteConnClient {
             .await?
         {
             ConnCmdRsp::Cmd(CmdResult::QueryMap(res)) => Ok(res),
-            _ => unreachable!(),
+            _ => Err(aanyhow!("Expected result: {}", "not query result")),
         }
     }
 
     pub async fn transaction(&mut self) -> AResult<ActorSqliteTxClient> {
         match self.inner(ConnCmdReq::Transaction).await? {
             ConnCmdRsp::Tx(tx) => Ok(ActorSqliteTxClient { inner: tx }),
-            _ => unreachable!(),
+            _ => Err(aanyhow!(
+                "Expected result: {}",
+                "unable to create tx client"
+            )),
         }
     }
 }
@@ -55,7 +58,7 @@ impl ActorSqliteConnClient {
 impl ActorSqliteTxClient {
     async fn inner(&self, command: TxCmdReq) -> AResult<TxCmdRsp> {
         let (otx, orx) = oneshot::channel();
-        let _ = self.inner.send(RspWrapper { command, otx });
+        self.inner.send(RspWrapper { command, otx })?;
         orx.await?
     }
 
@@ -65,7 +68,7 @@ impl ActorSqliteTxClient {
             .await?
         {
             TxCmdRsp::Cmd(CmdResult::Exec(res)) => Ok(res),
-            _ => unreachable!(),
+            _ => Err(aanyhow!("Expected result: {}", "affected size")),
         }
     }
 
@@ -79,21 +82,21 @@ impl ActorSqliteTxClient {
             .await?
         {
             TxCmdRsp::Cmd(CmdResult::QueryMap(res)) => Ok(res),
-            _ => unreachable!(),
+            _ => Err(aanyhow!("Expected result: {}", "not query result")),
         }
     }
 
     pub async fn commit(&self) -> EResult {
         match self.inner(TxCmdReq::Commit).await? {
-            TxCmdRsp::Closed => Ok(()),
-            _ => unreachable!(),
+            TxCmdRsp::Committed => Ok(()),
+            _ => Err(aanyhow!("Expected result: {}", "fail to commit")),
         }
     }
 
     pub async fn rollback(&self) -> EResult {
         match self.inner(TxCmdReq::Rollback).await? {
-            TxCmdRsp::Closed => Ok(()),
-            _ => unreachable!(),
+            TxCmdRsp::Rollbacked => Ok(()),
+            _ => Err(aanyhow!("Expected result: {}", "fail to rollback")),
         }
     }
 }

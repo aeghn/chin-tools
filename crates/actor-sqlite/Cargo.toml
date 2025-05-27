@@ -9,3 +9,4 @@ oneshot = "0.1.11"
 rusqlite.workspace = true
 chin-tools = { path = "../chin-tools" }
 chin-sql = { path = "../chin-sql" }
+log.workspace = true
