@@ -4,11 +4,10 @@ use std::{
     path::{Path, PathBuf},
     thread,
 };
-
 use chin_sql::{SqlValue, SqlValueOwned};
 use chin_tools::{AResult, EResult, aanyhow};
 use flume::Receiver;
-use rusqlite::{Connection, OpenFlags, Statement, Transaction};
+use rusqlite::{types::Value, Connection, OpenFlags, Statement, Transaction};
 
 use crate::model::*;
 
@@ -88,15 +87,16 @@ impl CmdExecutor<'_> {
                         .iter()
                         .map(|idx| {
                             (idx.to_string(), {
-                                let sv: SqlValue<'_> = match row.get_ref_unwrap(idx.as_str()) {
-                                    rusqlite::types::ValueRef::Null => SqlValue::Opt(None),
-                                    rusqlite::types::ValueRef::Integer(i) => SqlValue::I64(i),
-                                    rusqlite::types::ValueRef::Real(f) => SqlValue::F64(f),
-                                    rusqlite::types::ValueRef::Text(items) => {
-                                        SqlValue::Str(String::from_utf8_lossy(items))
+                                let cell: Value = row.get_unwrap(idx.as_str());
+                                let sv: SqlValue<'_> = match cell {
+                                    rusqlite::types::Value::Null => SqlValue::Opt(None),
+                                    rusqlite::types::Value::Integer(i) => SqlValue::I64(i),
+                                    rusqlite::types::Value::Real(f) => SqlValue::F64(f),
+                                    rusqlite::types::Value::Text(items) => {
+                                        SqlValue::Str(items.into())
                                     }
-                                    rusqlite::types::ValueRef::Blob(items) => {
-                                        SqlValue::Blob(Cow::Owned(items.to_vec()))
+                                    rusqlite::types::Value::Blob(items) => {
+                                        SqlValue::Blob(Cow::Owned(items))
                                     }
                                 };
                                 SqlValueOwned::from(sv)
@@ -235,6 +235,13 @@ impl WorkerConfig {
     pub fn path<P: AsRef<Path>>(self, path: P) -> Self {
         Self {
             path: path.as_ref().to_owned(),
+            ..self
+        }
+    }
+
+    pub fn journal_mode(self, journal_mode: JournalMode) -> Self {
+        Self {
+            journal_mode: Some(journal_mode),
             ..self
         }
     }

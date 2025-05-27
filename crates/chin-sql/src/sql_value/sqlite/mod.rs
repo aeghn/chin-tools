@@ -1,4 +1,5 @@
 use chrono::DateTime;
+use sqltype::Timestamptz;
 
 use std::str;
 
@@ -7,9 +8,11 @@ use rusqlite::{
     types::{FromSql, FromSqlResult},
 };
 
-use super::{DateFixedOffset, DateUtc, SharedStr, SqlValue, SqlValueOwned};
+use super::{SqlValue, SqlValueOwned};
 
-impl ToSql for DateFixedOffset {
+pub mod sqltype;
+
+impl ToSql for Timestamptz {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(rusqlite::types::ToSqlOutput::Owned(
             rusqlite::types::Value::Text(self.0.format("%Y-%m-%dT%H:%M:%S%.9f %z").to_string()),
@@ -17,15 +20,14 @@ impl ToSql for DateFixedOffset {
     }
 }
 
-
-impl FromSql for DateFixedOffset {
+impl FromSql for Timestamptz {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         match value {
             rusqlite::types::ValueRef::Text(items) => {
                 match str::from_utf8(items)
                     .map(|e| DateTime::parse_from_str(e, "%Y-%m-%dT%H:%M:%S%.9f %z"))
                 {
-                    Ok(Ok(dt)) => Ok(DateFixedOffset(dt)),
+                    Ok(Ok(dt)) => Ok(Timestamptz(dt)),
                     Ok(Err(err)) => {
                         FromSqlResult::Err(rusqlite::types::FromSqlError::Other(Box::new(err)))
                     }
@@ -39,22 +41,6 @@ impl FromSql for DateFixedOffset {
     }
 }
 
-impl ToSql for DateUtc {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Text(self.0.to_string()),
-        ))
-    }
-}
-
-impl ToSql for SharedStr {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Borrowed(
-            rusqlite::types::ValueRef::Text(self.0.as_bytes()),
-        ))
-    }
-}
-
 impl<'a> ToSql for SqlValue<'a> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         match self {
@@ -63,14 +49,17 @@ impl<'a> ToSql for SqlValue<'a> {
             SqlValue::I32(v) => v.to_sql(),
             SqlValue::I64(v) => v.to_sql(),
             SqlValue::Str(v) => v.to_sql(),
-            SqlValue::FixedOffset(v) => v.to_sql(),
-            SqlValue::Utc(v) => v.to_sql(),
+            SqlValue::FixedOffset(v) => Ok(rusqlite::types::ToSqlOutput::Owned(
+                rusqlite::types::Value::Integer(i64::from(Timestamptz::from(*v))),
+            )),
+            SqlValue::Utc(v) => Ok(rusqlite::types::ToSqlOutput::Owned(
+                rusqlite::types::Value::Integer(i64::from(Timestamptz::from(*v))),
+            )),
             SqlValue::Bool(v) => v.to_sql(),
             SqlValue::Opt(v) => match v {
                 Some(v) => v.as_ref().to_sql(),
                 None => None::<String>.to_sql(),
             },
-            SqlValue::SharedStr(v) => v.as_str().to_sql(),
             SqlValue::F64(v) => v.to_sql(),
             SqlValue::Blob(cow) => cow.to_sql(),
         }
@@ -87,7 +76,8 @@ impl ToSql for SqlValueOwned {
 mod tests {
     use chrono::{DateTime, Local};
 
-    use crate::DateFixedOffset;
+    use crate::sql_value::sqlite::sqltype::Timestamptz;
+
 
     #[test]
     fn test_convert() {
@@ -96,7 +86,7 @@ mod tests {
             .unwrap();
         conn.execute(
             "insert into ttime values(?)",
-            [DateFixedOffset::from(Local::now().fixed_offset())],
+            [i64::from(Timestamptz::from(Local::now().fixed_offset()))],
         )
         .unwrap();
         let time = conn

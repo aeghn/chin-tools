@@ -182,13 +182,13 @@ fn parse_bool(db_type: DbType) -> Result<String, syn::Error> {
 }
 fn parse_datetime_fixedoffset(db_type: DbType) -> Result<String, syn::Error> {
     match db_type {
-        DbType::Sqlite => Ok("TEXT".to_owned()),
+        DbType::Sqlite => Ok("INTEGER".to_owned()),
         DbType::Postgres => Ok("TIMESTAMPTZ".to_owned()),
     }
 }
 fn parse_datetime_utc(db_type: DbType) -> Result<String, syn::Error> {
     match db_type {
-        DbType::Sqlite => Ok("TEXT".to_owned()),
+        DbType::Sqlite => Ok("INTEGER".to_owned()),
         DbType::Postgres => Ok("TIMESTAMPTZ".to_owned()),
     }
 }

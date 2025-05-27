@@ -1,4 +1,5 @@
 pub type AResult<T> = anyhow::Result<T>;
+pub type AError = anyhow::Error;
 pub type EResult = anyhow::Result<()>;
 
 pub use anyhow::Context as AnyhowContext;
