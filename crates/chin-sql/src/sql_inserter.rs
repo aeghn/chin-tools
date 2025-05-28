@@ -20,7 +20,7 @@ pub enum OnConflict {
 }
 
 impl<'a> SqlInserter<'a> {
-    pub fn new(table: &'a str) -> Self {
+    pub fn new(table: &'static str) -> Self {
         SqlInserter {
             table,
             fields: vec![],
@@ -29,7 +29,7 @@ impl<'a> SqlInserter<'a> {
         }
     }
 
-    pub fn fields<T: Into<SqlValue<'a>>>(mut self, key: &'a str, value: T) -> Self {
+    pub fn field<T: Into<SqlValue<'a>>>(mut self, key: &'static str, value: T) -> Self {
         self.fields.push((key, value.into()));
 
         self

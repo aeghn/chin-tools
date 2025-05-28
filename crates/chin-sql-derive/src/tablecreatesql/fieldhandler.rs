@@ -134,19 +134,15 @@ fn find_attr_raw_rs_type(field: &Field) -> Option<Result<String, syn::Error>> {
     }
 }
 
-fn parse_str(field: &Field, db_type: DbType) -> Result<String, syn::Error> {
-    match db_type {
-        DbType::Sqlite => Ok("TEXT".to_owned()),
-        DbType::Postgres => {
-            if let Some(length) = find_attr_length(field) {
-                match length {
-                    Ok(length) => Ok(format!("VARCHAR({})", length)),
-                    Err(err) => Err(syn::Error::new(field.span(), err.to_string())),
-                }
-            } else {
-                Ok("TEXT".to_owned())
-            }
+// TODO: Sqlite do not really recognize the VARCHAR(<LENGTH>), maybe limit length in the code.
+fn parse_str(field: &Field, _: DbType) -> Result<String, syn::Error> {
+    if let Some(length) = find_attr_length(field) {
+        match length {
+            Ok(length) => Ok(format!("VARCHAR({})", length)),
+            Err(err) => Err(syn::Error::new(field.span(), err.to_string())),
         }
+    } else {
+        Ok("TEXT".to_owned())
     }
 }
 

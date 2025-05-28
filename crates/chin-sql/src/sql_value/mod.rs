@@ -215,7 +215,7 @@ macro_rules! try_from_sql_value {
 }
 
 try_from_sql_value!(DateTime<FixedOffset>,
-    FixedOffset => |v: DateTime<FixedOffset>| Ok(v.clone()),
+    FixedOffset => |v: DateTime<FixedOffset>| Ok(v),
     I64 => |v: i64| Timestamptz::try_from(v).map(|tz| *tz),
     Str => |v: Cow<'a, str>|  DateTime::parse_from_str(&v, "%Y-%m-%dT%H:%M:%S%.9f %z").map_err(|err| ChinSqlError::TransformError(err.to_string()))
 );
