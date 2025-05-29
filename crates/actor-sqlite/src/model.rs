@@ -1,16 +1,19 @@
-use chin_sql::{SqlValueOwned, SqlValueRow};
-use chin_tools::AResult;
+use std::sync::Arc;
+
 use flume::Sender;
+use rusqlite::types::Value;
+
+use crate::Result;
 
 #[derive(Debug)]
 pub enum CmdReq {
     Exec {
         sql: String,
-        params: Vec<SqlValueOwned>,
+        params: Vec<Value>,
     },
     QueryMap {
         sql: String,
-        params: Vec<SqlValueOwned>,
+        params: Vec<Value>,
     },
 }
 
@@ -50,9 +53,14 @@ pub enum TxCmdRsp {
 #[derive(Debug)]
 pub struct RspWrapper<T, V> {
     pub command: T,
-    pub otx: oneshot::Sender<AResult<V>>,
+    pub otx: oneshot::Sender<Result<V>>,
 }
 
-pub(crate) type SVRow = SqlValueRow<SqlValueOwned>;
-pub(crate) type SqlValueVec = Vec<SqlValueOwned>;
+#[derive(Clone, Debug)]
+pub struct ActorSqliteRow {
+    pub cells: Vec<(Arc<str>, Value)>
+}
+
+pub(crate) type SVRow = ActorSqliteRow;
+pub(crate) type SqlValueVec = Vec<Value>;
 pub(crate) type TxInner = Sender<RspWrapper<TxCmdReq, TxCmdRsp>>;

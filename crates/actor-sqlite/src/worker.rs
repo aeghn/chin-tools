@@ -1,15 +1,12 @@
+use flume::Receiver;
+use rusqlite::{Connection, OpenFlags, Statement, Transaction, types::Value};
 use std::{
-    borrow::Cow,
-    collections::HashMap,
     path::{Path, PathBuf},
+    sync::Arc,
     thread,
 };
-use chin_sql::{SqlValue, SqlValueOwned};
-use chin_tools::{AResult, EResult, aanyhow};
-use flume::Receiver;
-use rusqlite::{types::Value, Connection, OpenFlags, Statement, Transaction};
 
-use crate::model::*;
+use crate::{model::*, Result, ActorSqlError};
 
 pub(super) struct ActorSqliteWorker;
 
@@ -31,14 +28,14 @@ impl<'a> From<&'a mut Connection> for CmdExecutor<'a> {
 }
 
 impl CmdExecutor<'_> {
-    fn prepare(&self, sql: &str) -> AResult<Statement<'_>> {
+    fn prepare(&self, sql: &str) -> Result<Statement<'_>> {
         match self {
             CmdExecutor::Tx(transaction) => Ok(transaction.prepare(sql)?),
             CmdExecutor::Conn(connection) => Ok(connection.prepare(sql)?),
         }
     }
 
-    fn handle(&self, req: CmdReq) -> AResult<CmdResult> {
+    fn handle(&self, req: CmdReq) -> Result<CmdResult> {
         match req {
             CmdReq::Exec { sql, params } => {
                 let stmt = self.prepare(&sql)?;
@@ -55,9 +52,7 @@ impl CmdExecutor<'_> {
         }
     }
 
-    fn handle_exec(mut stmt: Statement<'_>, params: SqlValueVec) -> AResult<usize> {
-        let params: Vec<SqlValue<'_>> = params.into_iter().map(|p| p.into()).collect();
-
+    fn handle_exec(mut stmt: Statement<'_>, params: SqlValueVec) -> Result<usize> {
         let res = stmt.execute(
             params
                 .iter()
@@ -68,14 +63,14 @@ impl CmdExecutor<'_> {
         Ok(res)
     }
 
-    fn handle_query(mut stmt: Statement<'_>, params: SqlValueVec) -> AResult<Vec<SVRow>> {
+    fn handle_query(mut stmt: Statement<'_>, params: SqlValueVec) -> Result<Vec<SVRow>> {
         let columns: Vec<String> = stmt
             .column_names()
             .into_iter()
             .map(|e| e.to_owned())
             .collect();
 
-        let res: Result<Vec<SVRow>, rusqlite::Error> = stmt
+        let res: std::result::Result<Vec<SVRow>, rusqlite::Error> = stmt
             .query_map(
                 params
                     .iter()
@@ -83,27 +78,11 @@ impl CmdExecutor<'_> {
                     .collect::<Vec<&dyn rusqlite::types::ToSql>>()
                     .as_slice(),
                 |row| {
-                    let cs: HashMap<String, SqlValueOwned> = columns
+                    let cells: Vec<(Arc<str>, Value)> = columns
                         .iter()
-                        .map(|idx| {
-                            (idx.to_string(), {
-                                let cell: Value = row.get_unwrap(idx.as_str());
-                                let sv: SqlValue<'_> = match cell {
-                                    rusqlite::types::Value::Null => SqlValue::Opt(None),
-                                    rusqlite::types::Value::Integer(i) => SqlValue::I64(i),
-                                    rusqlite::types::Value::Real(f) => SqlValue::F64(f),
-                                    rusqlite::types::Value::Text(items) => {
-                                        SqlValue::Str(items.into())
-                                    }
-                                    rusqlite::types::Value::Blob(items) => {
-                                        SqlValue::Blob(Cow::Owned(items))
-                                    }
-                                };
-                                SqlValueOwned::from(sv)
-                            })
-                        })
+                        .map(|idx| (idx.to_string().into(), row.get_unwrap(idx.as_str())))
                         .collect();
-                    Ok(SVRow { row: cs })
+                    Ok(SVRow { cells })
                 },
             )?
             .collect();
@@ -115,7 +94,7 @@ impl CmdExecutor<'_> {
     }
 }
 
-pub(crate) fn conn_run(conn: &mut Connection, req: RspWrapper<ConnCmdReq, ConnCmdRsp>) -> EResult {
+pub(crate) fn conn_run(conn: &mut Connection, req: RspWrapper<ConnCmdReq, ConnCmdRsp>) -> Result<()> {
     let RspWrapper { command, otx } = req;
     log::debug!("conn run {:#?}", command);
 
@@ -124,7 +103,7 @@ pub(crate) fn conn_run(conn: &mut Connection, req: RspWrapper<ConnCmdReq, ConnCm
             let tranaction = match conn.transaction() {
                 Ok(tx) => tx,
                 Err(err) => {
-                    otx.send(Err(aanyhow!(err)))?;
+                    otx.send(Err(ActorSqlError::CustomRusqliteError(err)))?;
                     return Ok(());
                 }
             };
@@ -144,7 +123,7 @@ pub(crate) fn conn_run(conn: &mut Connection, req: RspWrapper<ConnCmdReq, ConnCm
 pub(crate) fn tx_run<'a>(
     tx: Transaction<'a>,
     rx: Receiver<RspWrapper<TxCmdReq, TxCmdRsp>>,
-) -> EResult {
+) -> Result<()> {
     let executor = CmdExecutor::from(&tx);
     loop {
         let RspWrapper { command, otx } = rx.recv()?;
@@ -186,7 +165,8 @@ impl ActorSqliteWorker {
                 Ok(cb) => {
                     conn_run(&mut conn, cb).unwrap();
                 }
-                Err(_) => {
+                Err(err) => {
+                    println!("unable to receive {}", err);
                     unimplemented!()
                 }
             }
@@ -246,7 +226,7 @@ impl WorkerConfig {
         }
     }
 
-    pub fn spawn(self, in_rx: Receiver<RspWrapper<ConnCmdReq, ConnCmdRsp>>) -> EResult {
+    pub fn spawn(self, in_rx: Receiver<RspWrapper<ConnCmdReq, ConnCmdRsp>>) -> Result<()> {
         let conn = self.build_conn()?;
 
         thread::spawn(move || {
@@ -257,7 +237,7 @@ impl WorkerConfig {
         Ok(())
     }
 
-    fn build_conn(mut self) -> AResult<Connection> {
+    fn build_conn(mut self) -> Result<Connection> {
         let path = self.path.clone();
         let conn = if let Some(vfs) = self.vfs.take() {
             Connection::open_with_flags_and_vfs(path, self.flags, &vfs)?
@@ -270,7 +250,7 @@ impl WorkerConfig {
             let out: String =
                 conn.pragma_update_and_check(None, "journal_mode", val, |row| row.get(0))?;
             if !out.eq_ignore_ascii_case(val) {
-                return Err(aanyhow!("unablt to set journal_mode: {:?}", journal_mode));
+                return Err(ActorSqlError::RusqliteBuildError(format!("unablt to set journal_mode: {:?}", journal_mode)));
             }
         }
 

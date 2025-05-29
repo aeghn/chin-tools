@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use chin_tools::AResult;
 use flume::{Receiver, Sender};
 
-use crate::model::*;
+use crate::{model::*, Result, ActorSqlError};
 use crate::worker::WorkerConfig;
 
 use super::{client::ActorSqliteConnClient, worker::ActorSqliteWorker};
@@ -17,9 +16,9 @@ pub struct InnerActorSqlitePool {
 pub type ActorSqlitePool = Arc<InnerActorSqlitePool>;
 
 impl TryFrom<WorkerConfig> for ActorSqlitePool {
-    type Error = chin_tools::AError;
+    type Error = ActorSqlError;
 
-    fn try_from(config: WorkerConfig) -> Result<Self, Self::Error> {
+    fn try_from(config: WorkerConfig) -> Result<Self> {
         let (worker_tx, worker_rx) = flume::unbounded();
 
         for i in 0..config.pool_size.unwrap_or(4) {
@@ -38,7 +37,7 @@ impl TryFrom<WorkerConfig> for ActorSqlitePool {
 }
 
 impl InnerActorSqlitePool {
-    pub fn check_size(&self) -> AResult<()> {
+    pub fn check_size(&self) -> Result<()> {
         let full_count = self.config.pool_size.unwrap_or(4) as usize;
         loop {
             if self.worker_tx.receiver_count() < full_count {
@@ -49,7 +48,7 @@ impl InnerActorSqlitePool {
         }
     }
 
-    pub async fn get(&self) -> AResult<ActorSqliteConnClient> {
+    pub async fn get(&self) -> Result<ActorSqliteConnClient> {
         Ok(ActorSqliteConnClient {
             inner: self.worker_tx.clone(),
         })

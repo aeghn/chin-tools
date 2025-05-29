@@ -1,45 +1,10 @@
-use chrono::DateTime;
 use sqltype::Timestamptz;
 
-use std::str;
-
-use rusqlite::{
-    ToSql,
-    types::{FromSql, FromSqlResult},
-};
+use rusqlite::{ToSql, types::Value};
 
 use super::{SqlValue, SqlValueOwned};
 
 pub mod sqltype;
-
-impl ToSql for Timestamptz {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(rusqlite::types::ToSqlOutput::Owned(
-            rusqlite::types::Value::Text(self.0.format("%Y-%m-%dT%H:%M:%S%.9f %z").to_string()),
-        ))
-    }
-}
-
-impl FromSql for Timestamptz {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        match value {
-            rusqlite::types::ValueRef::Text(items) => {
-                match str::from_utf8(items)
-                    .map(|e| DateTime::parse_from_str(e, "%Y-%m-%dT%H:%M:%S%.9f %z"))
-                {
-                    Ok(Ok(dt)) => Ok(Timestamptz(dt)),
-                    Ok(Err(err)) => {
-                        FromSqlResult::Err(rusqlite::types::FromSqlError::Other(Box::new(err)))
-                    }
-                    Err(err) => {
-                        FromSqlResult::Err(rusqlite::types::FromSqlError::Other(Box::new(err)))
-                    }
-                }
-            }
-            _ => FromSqlResult::Err(rusqlite::types::FromSqlError::InvalidType),
-        }
-    }
-}
 
 impl<'a> ToSql for SqlValue<'a> {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
@@ -72,12 +37,34 @@ impl ToSql for SqlValueOwned {
     }
 }
 
+impl<'a> From<SqlValue<'a>> for Value {
+    fn from(value: SqlValue<'a>) -> Self {
+        match value {
+            SqlValue::Bool(v) => Value::from(v),
+            SqlValue::I8(v) => Value::from(v),
+            SqlValue::I16(v) => Value::from(v),
+            SqlValue::I32(v) => Value::from(v),
+            SqlValue::I64(v) => Value::from(v),
+            SqlValue::F64(v) => Value::from(v),
+            SqlValue::Str(v) => Value::from(v.to_string()),
+            SqlValue::FixedOffset(date_time) => {
+                Value::from(i64::from(Timestamptz::from(date_time)))
+            }
+            SqlValue::Utc(date_time) => Value::from(i64::from(Timestamptz::from(date_time))),
+            SqlValue::Blob(v) => Value::from(v.to_vec()),
+            SqlValue::Opt(v) => match v {
+                Some(v) => Value::from(*v),
+                None => Value::Null,
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, Local};
 
     use crate::sql_value::sqlite::sqltype::Timestamptz;
-
 
     #[test]
     fn test_convert() {

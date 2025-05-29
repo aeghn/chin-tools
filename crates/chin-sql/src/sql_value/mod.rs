@@ -5,14 +5,17 @@ mod sqlite;
 mod postgres;
 
 use std::{
-    borrow::{Borrow, Cow}, collections::HashMap, ops::Deref
+    borrow::{Borrow, Cow},
+    collections::HashMap,
+    ops::Deref,
+    sync::Arc,
 };
 
 use chrono::{DateTime, FixedOffset, Utc};
+use rusqlite::types::Value;
 use sqlite::sqltype::Timestamptz;
 
 use crate::ChinSqlError;
-
 
 #[derive(Clone, Debug)]
 pub enum SqlValue<'a> {
@@ -34,9 +37,8 @@ pub struct SqlValueOwned(SqlValue<'static>);
 
 #[derive(Clone, Debug)]
 pub struct SqlValueRow<T> {
-    pub row: HashMap<String, T>,
+    pub row: HashMap<Arc<str>, T>,
 }
-
 
 impl Deref for SqlValueOwned {
     type Target = SqlValue<'static>;
@@ -49,6 +51,18 @@ impl Deref for SqlValueOwned {
 impl<'a> From<SqlValue<'a>> for SqlValueOwned {
     fn from(value: SqlValue<'a>) -> Self {
         Self(value.live_static())
+    }
+}
+
+impl From<Value> for SqlValueOwned {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Null => Self(SqlValue::Opt(None)),
+            Value::Integer(v) => Self(SqlValue::I64(v)),
+            Value::Real(v) => Self(SqlValue::F64(v)),
+            Value::Text(v) => Self(SqlValue::Str(v.into())),
+            Value::Blob(v) => Self(SqlValue::Blob(v.into())),
+        }
     }
 }
 
@@ -68,9 +82,9 @@ impl<'a> SqlValue<'a> {
     pub fn live_static(self) -> SqlValue<'static> {
         match self {
             SqlValue::Opt(v) => match v {
-                        Some(v) => SqlValue::Opt(Some(Box::new(v.live_static()))),
-                        None => SqlValue::Opt(None),
-                    },
+                Some(v) => SqlValue::Opt(Some(Box::new(v.live_static()))),
+                None => SqlValue::Opt(None),
+            },
             SqlValue::I8(v) => SqlValue::I8(v),
             SqlValue::I16(v) => SqlValue::I16(v),
             SqlValue::I32(v) => SqlValue::I32(v),
