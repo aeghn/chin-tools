@@ -234,7 +234,10 @@ try_from_sql_value!(DateTime<FixedOffset>,
     Str => |v: Cow<'a, str>|  DateTime::parse_from_str(&v, "%Y-%m-%dT%H:%M:%S%.9f %z").map_err(|err| ChinSqlError::TransformError(err.to_string()))
 );
 
-try_from_sql_value!(bool, Bool => |v: bool| Ok(v));
+try_from_sql_value!(bool,
+    Bool => |v: bool| Ok(v),
+    I64 => |v: i64| Ok(v != 0)
+);
 try_from_sql_value!(i64, I64 => |v: i64| Ok(v));
 try_from_sql_value!(i32, I32 => |v: i32| Ok(v));
 try_from_sql_value!(f64, F64 => |v: f64|Ok(v));
