@@ -83,7 +83,7 @@ impl<'a> IntoSqlSeg<'a> for SqlInserter<'a> {
 
         let mut pht_vec = Vec::with_capacity(self.fields.len());
         for _ in self.fields.iter() {
-            pht_vec.push(pht.next());
+            pht_vec.push(pht.next_ph());
         }
 
         sql.push_str(pht_vec.join(", ").as_str());

@@ -6,7 +6,7 @@ use std::{
     thread,
 };
 
-use crate::{model::*, Result, ActorSqlError};
+use crate::{ActorSqlError, Result, model::*};
 
 pub(super) struct ActorSqliteWorker;
 
@@ -94,7 +94,10 @@ impl CmdExecutor<'_> {
     }
 }
 
-pub(crate) fn conn_run(conn: &mut Connection, req: RspWrapper<ConnCmdReq, ConnCmdRsp>) -> Result<()> {
+pub(crate) fn conn_run(
+    conn: &mut Connection,
+    req: RspWrapper<ConnCmdReq, ConnCmdRsp>,
+) -> Result<()> {
     let RspWrapper { command, otx } = req;
     log::debug!("conn run {:#?}", command);
 
@@ -111,10 +114,14 @@ pub(crate) fn conn_run(conn: &mut Connection, req: RspWrapper<ConnCmdReq, ConnCm
             otx.send(Ok(ConnCmdRsp::Tx(tx)))?;
             tx_run(tranaction, rx)?;
         }
-        ConnCmdReq::Command(cmd) => {
-            let rsp = CmdExecutor::from(conn).handle(cmd)?;
-            otx.send(Ok(ConnCmdRsp::Cmd(rsp)))?;
-        }
+        ConnCmdReq::Command(cmd) => match CmdExecutor::from(conn).handle(cmd) {
+            Ok(rsp) => {
+                otx.send(Ok(ConnCmdRsp::Cmd(rsp)))?;
+            }
+            Err(err) => {
+                otx.send(Err(err))?;
+            }
+        },
     }
 
     Ok(())
@@ -129,19 +136,34 @@ pub(crate) fn tx_run<'a>(
         let RspWrapper { command, otx } = rx.recv()?;
         log::debug!("conn run {:#?}", command);
         match command {
-            TxCmdReq::Command(cmd) => {
-                let rsp = executor.handle(cmd)?;
-                otx.send(Ok(TxCmdRsp::Cmd(rsp)))?;
-            }
+            TxCmdReq::Command(cmd) => match executor.handle(cmd) {
+                Ok(rsp) => {
+                    otx.send(Ok(TxCmdRsp::Cmd(rsp)))?;
+                }
+                Err(err) => {
+                    otx.send(Err(err))?;
+                }
+            },
             TxCmdReq::Commit => {
-                tx.commit()?;
-                otx.send(Ok(TxCmdRsp::Committed))?;
-
+                match tx.commit() {
+                    Ok(_) => {
+                        otx.send(Ok(TxCmdRsp::Committed))?;
+                    }
+                    Err(err) => {
+                        otx.send(Err(err.into()))?;
+                    }
+                };
                 break;
             }
             TxCmdReq::Rollback => {
-                tx.rollback()?;
-                otx.send(Ok(TxCmdRsp::Rollbacked))?;
+                match tx.rollback() {
+                    Ok(_) => {
+                        otx.send(Ok(TxCmdRsp::Rollbacked))?;
+                    }
+                    Err(err) => {
+                        otx.send(Err(err.into()))?;
+                    }
+                };
 
                 break;
             }
@@ -250,7 +272,10 @@ impl WorkerConfig {
             let out: String =
                 conn.pragma_update_and_check(None, "journal_mode", val, |row| row.get(0))?;
             if !out.eq_ignore_ascii_case(val) {
-                return Err(ActorSqlError::RusqliteBuildError(format!("unablt to set journal_mode: {:?}", journal_mode)));
+                return Err(ActorSqlError::RusqliteBuildError(format!(
+                    "unablt to set journal_mode: {:?}",
+                    journal_mode
+                )));
             }
         }
 

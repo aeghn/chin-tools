@@ -11,6 +11,7 @@ use std::{
     sync::Arc,
 };
 
+use chin_tools_types::{time_type::TID, LogicFieldType};
 use chrono::{DateTime, FixedOffset, Utc};
 use rusqlite::types::Value;
 use sqlite::sqltype::Timestamptz;
@@ -30,6 +31,7 @@ pub enum SqlValue<'a> {
     Utc(DateTime<Utc>),
     Blob(Cow<'a, [u8]>),
     Opt(Option<Box<SqlValue<'a>>>),
+    Null(LogicFieldType)
 }
 
 #[derive(Clone, Debug)]
@@ -48,8 +50,10 @@ impl Deref for SqlValueOwned {
     }
 }
 
-impl<'a> From<SqlValue<'a>> for SqlValueOwned {
-    fn from(value: SqlValue<'a>) -> Self {
+
+impl<'a, T: Into<SqlValue<'a>>> From<T> for SqlValueOwned {
+    fn from(value: T) -> Self {
+        let value = value.into();
         Self(value.live_static())
     }
 }
@@ -66,12 +70,6 @@ impl From<Value> for SqlValueOwned {
     }
 }
 
-impl From<SqlValueOwned> for SqlValue<'static> {
-    fn from(value: SqlValueOwned) -> Self {
-        value.0
-    }
-}
-
 impl<'a> Borrow<SqlValue<'a>> for SqlValueOwned {
     fn borrow(&self) -> &SqlValue<'a> {
         &self.0
@@ -82,9 +80,9 @@ impl<'a> SqlValue<'a> {
     pub fn live_static(self) -> SqlValue<'static> {
         match self {
             SqlValue::Opt(v) => match v {
-                Some(v) => SqlValue::Opt(Some(Box::new(v.live_static()))),
-                None => SqlValue::Opt(None),
-            },
+                        Some(v) => SqlValue::Opt(Some(Box::new(v.live_static()))),
+                        None => SqlValue::Opt(None),
+                    },
             SqlValue::I8(v) => SqlValue::I8(v),
             SqlValue::I16(v) => SqlValue::I16(v),
             SqlValue::I32(v) => SqlValue::I32(v),
@@ -95,6 +93,7 @@ impl<'a> SqlValue<'a> {
             SqlValue::F64(v) => SqlValue::F64(v),
             SqlValue::Blob(cow) => SqlValue::Blob(Cow::Owned(cow.to_vec())),
             SqlValue::Str(cow) => SqlValue::Str(Cow::Owned(cow.into_owned())),
+            SqlValue::Null(logic_field_type) => SqlValue::Null(logic_field_type),
         }
     }
 }
@@ -120,6 +119,12 @@ impl<'a> From<i32> for SqlValue<'a> {
 impl<'a> From<i64> for SqlValue<'a> {
     fn from(val: i64) -> Self {
         SqlValue::I64(val)
+    }
+}
+
+impl<'a> From<TID> for SqlValue<'a> {
+    fn from(value: TID) -> Self {
+        SqlValue::I64(value.into())
     }
 }
 
@@ -177,6 +182,12 @@ impl<'a, T: Into<SqlValue<'a>>> From<Option<T>> for SqlValue<'a> {
             let sv: SqlValue<'a> = e.into();
             sv.into()
         }))
+    }
+}
+
+impl<'a> From<f64> for SqlValue<'a> {
+    fn from(val: f64) -> Self {
+        SqlValue::F64(val)
     }
 }
 
@@ -246,3 +257,6 @@ try_from_sql_value!(Cow<'a, str>, Str => |v: Cow<'a, str>| Ok(v));
 try_from_sql_value!(String,
     Str => |v: Cow<'a, str>| Ok(v.to_string())
 );
+
+try_from_sql_value!(TID, I64 => |v: i64|Ok(v.into()));
+

@@ -26,7 +26,7 @@ where
     log::info!("begin to read niri stream");
     reader
         .lines()
-        .filter_map(|line| line.ok())
+        .map_while(Result::ok)
         .for_each(|line| {
             let event: Result<Event, serde_json::Error> = serde_json::from_str(&line);
             match event {

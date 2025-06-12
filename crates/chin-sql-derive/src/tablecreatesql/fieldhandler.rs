@@ -152,36 +152,42 @@ fn parse_i32(db_type: DbType) -> Result<String, syn::Error> {
         DbType::Postgres => Ok("int4".to_owned()),
     }
 }
+
 fn parse_i64(db_type: DbType) -> Result<String, syn::Error> {
     match db_type {
         DbType::Sqlite => Ok("INTEGER".to_owned()),
         DbType::Postgres => Ok("int8".to_owned()),
     }
 }
+
 fn parse_f32(db_type: DbType) -> Result<String, syn::Error> {
     match db_type {
         DbType::Sqlite => Ok("REAL".to_owned()),
         DbType::Postgres => Ok("real".to_owned()),
     }
 }
+
 fn parse_f64(db_type: DbType) -> Result<String, syn::Error> {
     match db_type {
         DbType::Sqlite => Ok("REAL".to_owned()),
         DbType::Postgres => Ok("double precision".to_owned()),
     }
 }
+
 fn parse_bool(db_type: DbType) -> Result<String, syn::Error> {
     match db_type {
         DbType::Sqlite => Ok("NUMERIC".to_owned()),
         DbType::Postgres => Ok("BOOLEAN".to_owned()),
     }
 }
+
 fn parse_datetime_fixedoffset(db_type: DbType) -> Result<String, syn::Error> {
     match db_type {
         DbType::Sqlite => Ok("INTEGER".to_owned()),
         DbType::Postgres => Ok("TIMESTAMPTZ".to_owned()),
     }
 }
+
 fn parse_datetime_utc(db_type: DbType) -> Result<String, syn::Error> {
     match db_type {
         DbType::Sqlite => Ok("INTEGER".to_owned()),

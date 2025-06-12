@@ -9,7 +9,7 @@ pub enum PossibleScore {
 }
 
 impl PossibleScore {
-    fn to_score(&self) -> f32 {
+    fn f32_score(&self) -> f32 {
         match self {
             PossibleScore::Yes(i) => 9_f32 + Self::little_score(i),
             PossibleScore::Likely(i) => 8_f32 + Self::little_score(i),
@@ -25,18 +25,12 @@ impl PossibleScore {
     }
 
     pub fn merge(self, score: u8) -> Self {
-        PossibleScore::Num(self.to_score() as u8 * 25 / 2 + score)
+        PossibleScore::Num(self.f32_score() as u8 * 25 / 2 + score)
     }
 }
 
 impl PartialOrd for PossibleScore {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.to_score().partial_cmp(&other.to_score())
-    }
-}
-
-impl Ord for PossibleScore {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.to_score().partial_cmp(&other.to_score()).unwrap()
+        self.f32_score().partial_cmp(&other.f32_score())
     }
 }

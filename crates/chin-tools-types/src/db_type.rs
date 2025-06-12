@@ -4,7 +4,7 @@ pub enum DbType {
     Postgres,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum LogicFieldType {
     Bool,
     I8,

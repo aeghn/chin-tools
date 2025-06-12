@@ -10,7 +10,6 @@ enum SqlReaderSeg<'a> {
     Where(Wheres<'a>),
     LimitOffset(LimitOffset),
     Comma(Vec<&'a str>),
-    Raw(&'a str),
     SegOrVal(SegOrVal<'a>),
     RawOwned(String),
     Custom(Box<dyn CustomSqlSeg<'a>>),
@@ -52,11 +51,6 @@ impl<'a> SqlReader<'a> {
                 table_name
             ))],
         }
-    }
-
-    pub fn raw(mut self, seg: &'a str) -> Self {
-        self.segs.push(SqlReaderSeg::Raw(seg));
-        self
     }
 
     pub fn sov<T: Into<SegOrVal<'a>>>(mut self, sov: T) -> Self {
@@ -174,9 +168,6 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
                 SqlReaderSeg::Comma(vs) => {
                     sb.push_str(vs.join(", ").as_str());
                 }
-                SqlReaderSeg::Raw(raw) => {
-                    sb.push_str(raw);
-                }
                 SqlReaderSeg::Custom(custom) => {
                     if let Some(cs) = custom.build(pht) {
                         sb.push_str(&cs.seg);
@@ -200,7 +191,7 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
                         sb.push_str(&s);
                     }
                     SegOrVal::Val(val) => {
-                        sb.push_str(&pht.next());
+                        sb.push_str(&pht.next_ph());
                         values.push(val);
                     }
                 },

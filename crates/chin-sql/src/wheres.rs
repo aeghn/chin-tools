@@ -174,7 +174,7 @@ impl<'a> Wheres<'a> {
                 seg.push_str(" in (");
                 let vs = fs
                     .iter()
-                    .map(|_| value_type.next())
+                    .map(|_| value_type.next_ph())
                     .collect::<Vec<String>>();
                 seg.push_str(vs.join(",").as_str());
 
@@ -205,7 +205,7 @@ impl<'a> Wheres<'a> {
                 seg.push_str(operator);
                 seg.push(' ');
 
-                seg.push_str(&value_type.next());
+                seg.push_str(&value_type.next_ph());
                 values.push(value);
             }
             Wheres::Raw(cow) => {
@@ -223,7 +223,7 @@ impl<'a> Wheres<'a> {
                             seg.push_str(&cow);
                         }
                         SegOrVal::Val(sql_value) => {
-                            seg.push_str(&value_type.next());
+                            seg.push_str(&value_type.next_ph());
                             values.push(sql_value);
                         }
                     }

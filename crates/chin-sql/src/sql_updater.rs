@@ -73,7 +73,7 @@ impl<'a> IntoSqlSeg<'a> for SqlUpdater<'a> {
             .into_iter()
             .map(|(key, v)| {
                 values.push(v);
-                format!(" {} = {} ", key, pht.next())
+                format!(" {} = {} ", key, pht.next_ph())
             })
             .collect();
         sb.push_str(fields.join(", ").as_str());

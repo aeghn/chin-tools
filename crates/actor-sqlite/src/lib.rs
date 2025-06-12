@@ -12,13 +12,13 @@ pub use worker::WorkerConfig;
 pub enum ActorSqlError {
     #[error("BuilderSqlError")]
     BuilderSqlError,
-    #[error("Custom Error {0}")]
+    #[error("Literal Error {0}")]
     LiteralError(String),
-    #[error("Sqlite Error")]
+    #[error("Custom Sqlite Error {0}")]
     CustomRusqliteError(rusqlite::Error),
-    #[error("Sqlite Error")]
+    #[error("Sqlite Error {0}")]
     RusqliteBuildError(String),
-    #[error("Actor Error")]
+    #[error("Actor Error {0}")]
     ActorError(Box<dyn Error + Send + Sync>),
 }
 

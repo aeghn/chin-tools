@@ -16,7 +16,7 @@ impl PlaceHolderType {
         PlaceHolderType::QustionMark
     }
 
-    pub fn next(&mut self) -> String {
+    pub fn next_ph(&mut self) -> String {
         match self {
             PlaceHolderType::QustionMark => "?".to_owned(),
             PlaceHolderType::DollarNumber(n) => {
