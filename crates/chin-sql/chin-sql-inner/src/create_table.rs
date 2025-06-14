@@ -54,7 +54,7 @@ impl<'a> IntoSqlSeg<'a> for &CreateTableSql {
         pht: &mut crate::PlaceHolderType,
     ) -> Result<crate::SqlSeg<'a>, crate::ChinSqlError> {
         let mut sr = SqlBuilder::new()
-            .sov("create table")
+            .sov("create table if not exists")
             .sov(self.table_name)
             .sov("(");
 

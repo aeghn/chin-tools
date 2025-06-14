@@ -4,7 +4,7 @@ use std::{
 };
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
-use serde::{Deserialize, Deserializer, Serialize, de};
+use serde::{Deserialize, Deserializer, Serialize};
 
 pub fn current_timestamptz() -> DateTime<FixedOffset> {
     Utc::now().with_timezone(&TimeZone::from_offset(Local::now().offset()))

@@ -1,5 +1,3 @@
-use core::prelude::v1;
-use std::{any::Any, sync::atomic::AtomicI16};
 
 use chrono::{DateTime, FixedOffset, Utc};
 use postgres_types::ToSql;
