@@ -1,0 +1,8 @@
+[package]
+name = "chin-sql"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chin-sql-inner = { path = "./chin-sql-inner" }
+chin-sql-derive = { path = "./chin-sql-derive" }

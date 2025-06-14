@@ -11,12 +11,13 @@ use std::{
     sync::Arc,
 };
 
-use chin_tools_types::time_type::TID;
+pub mod time_type;
+
 use chrono::{DateTime, FixedOffset, Utc};
 use rusqlite::types::Value;
 use sqlite::sqltype::Timestamptz;
 
-use crate::ChinSqlError;
+use crate::{time_type::TID, ChinSqlError};
 
 #[derive(Clone, Debug)]
 pub enum RustFieldType {

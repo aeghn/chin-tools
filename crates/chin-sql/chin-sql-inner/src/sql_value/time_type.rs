@@ -1,4 +1,3 @@
-use core::fmt;
 use std::{
     fmt::{Display, Formatter},
     sync::{Arc, LazyLock, atomic::AtomicI64},
@@ -114,7 +113,6 @@ impl TID {
     }
 }
 
-#[cfg(feature = "db")]
 pub mod from_pg {
     use postgres_types::{FromSql, accepts};
 

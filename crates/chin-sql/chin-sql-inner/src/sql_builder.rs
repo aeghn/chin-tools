@@ -6,7 +6,7 @@ pub trait CustomSqlSeg<'a>: Send {
     fn build(&self, value_type: &mut PlaceHolderType) -> Option<SqlSeg<'a>>;
 }
 
-enum SqlReaderSeg<'a> {
+enum SqlBuilderSeg<'a> {
     Where(Wheres<'a>),
     LimitOffset(LimitOffset),
     Comma(Vec<&'a str>),
@@ -20,7 +20,7 @@ enum SqlReaderSeg<'a> {
 }
 
 pub struct SqlBuilder<'a> {
-    segs: Vec<SqlReaderSeg<'a>>,
+    segs: Vec<SqlBuilderSeg<'a>>,
 }
 
 impl<'a> Default for SqlBuilder<'a> {
@@ -36,7 +36,7 @@ impl<'a> SqlBuilder<'a> {
 
     pub fn read(table_name: &str, fields: &[&str]) -> Self {
         Self {
-            segs: vec![SqlReaderSeg::RawOwned(format!(
+            segs: vec![SqlBuilderSeg::RawOwned(format!(
                 "select {} from {} ",
                 fields.join(", "),
                 table_name
@@ -46,7 +46,7 @@ impl<'a> SqlBuilder<'a> {
 
     pub fn read_all(table_name: &str) -> Self {
         Self {
-            segs: vec![SqlReaderSeg::RawOwned(format!(
+            segs: vec![SqlBuilderSeg::RawOwned(format!(
                 "select * from {} ",
                 table_name
             ))],
@@ -54,7 +54,7 @@ impl<'a> SqlBuilder<'a> {
     }
 
     pub fn sov<T: Into<SegOrVal<'a>>>(mut self, sov: T) -> Self {
-        self.segs.push(SqlReaderSeg::SegOrVal(sov.into()));
+        self.segs.push(SqlBuilderSeg::SegOrVal(sov.into()));
         self
     }
 
@@ -70,33 +70,33 @@ impl<'a> SqlBuilder<'a> {
     }
 
     pub fn r#where<T: Into<Wheres<'a>>>(mut self, wheres: T) -> Self {
-        self.segs.push(SqlReaderSeg::Where(wheres.into()));
+        self.segs.push(SqlBuilderSeg::Where(wheres.into()));
         self
     }
 
     pub fn comma(mut self, values: Vec<&'a str>) -> Self {
-        self.segs.push(SqlReaderSeg::Comma(values));
+        self.segs.push(SqlBuilderSeg::Comma(values));
         self
     }
 
     pub fn sub(mut self, alias: &'a str, query: SqlBuilder<'a>) -> Self {
-        self.segs.push(SqlReaderSeg::Sub { alias, query });
+        self.segs.push(SqlBuilderSeg::Sub { alias, query });
         self
     }
 
     pub fn custom<T: CustomSqlSeg<'a> + 'static>(mut self, custom: T) -> Self {
-        self.segs.push(SqlReaderSeg::Custom(Box::new(custom)));
+        self.segs.push(SqlBuilderSeg::Custom(Box::new(custom)));
         self
     }
 
     pub fn limit(mut self, limit: usize) -> Self {
         self.segs
-            .push(SqlReaderSeg::LimitOffset(LimitOffset::new(limit)));
+            .push(SqlBuilderSeg::LimitOffset(LimitOffset::new(limit)));
         self
     }
 
     pub fn limit_offset(mut self, limit: LimitOffset) -> Self {
-        self.segs.push(SqlReaderSeg::LimitOffset(limit));
+        self.segs.push(SqlBuilderSeg::LimitOffset(limit));
         self
     }
 }
@@ -158,23 +158,23 @@ impl<'a> IntoSqlSeg<'a> for SqlBuilder<'a> {
 
         for seg in self.segs {
             match seg {
-                SqlReaderSeg::Where(wr) => {
+                SqlBuilderSeg::Where(wr) => {
                     if let Some(ss) = wr.build(db_type, pht) {
                         sb.push_str(" where ");
                         sb.push_str(&ss.seg);
                         values.extend(ss.values)
                     }
                 }
-                SqlReaderSeg::Comma(vs) => {
+                SqlBuilderSeg::Comma(vs) => {
                     sb.push_str(vs.join(", ").as_str());
                 }
-                SqlReaderSeg::Custom(custom) => {
+                SqlBuilderSeg::Custom(custom) => {
                     if let Some(cs) = custom.build(pht) {
                         sb.push_str(&cs.seg);
                         values.extend(cs.values)
                     }
                 }
-                SqlReaderSeg::Sub { alias, query } => {
+                SqlBuilderSeg::Sub { alias, query } => {
                     if let Ok(s) = query.into_sql_seg2(db_type, pht) {
                         sb.push_str(" (");
                         sb.push_str(&s.seg);
@@ -183,10 +183,10 @@ impl<'a> IntoSqlSeg<'a> for SqlBuilder<'a> {
                         values.extend(s.values);
                     }
                 }
-                SqlReaderSeg::RawOwned(raw) => {
+                SqlBuilderSeg::RawOwned(raw) => {
                     sb.push_str(raw.as_str());
                 }
-                SqlReaderSeg::SegOrVal(sql_seg) => match sql_seg {
+                SqlBuilderSeg::SegOrVal(sql_seg) => match sql_seg {
                     SegOrVal::Str(s) => {
                         sb.push_str(&s);
                         sb.push(' ');
@@ -197,7 +197,7 @@ impl<'a> IntoSqlSeg<'a> for SqlBuilder<'a> {
                         values.push(val);
                     }
                 },
-                SqlReaderSeg::LimitOffset(limit_offset) => {
+                SqlBuilderSeg::LimitOffset(limit_offset) => {
                     let SqlSeg { seg, values: vs } =
                         limit_offset.build(pht).ok_or(ChinSqlError::TransformError(
                             "Unable convert limit offset to sql seg.".to_owned(),
