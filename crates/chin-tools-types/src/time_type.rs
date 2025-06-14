@@ -11,6 +11,8 @@ pub fn current_timestamptz() -> DateTime<FixedOffset> {
     Utc::now().with_timezone(&TimeZone::from_offset(Local::now().offset()))
 }
 
+pub const VERY_VERY_BIG_TID: i64 = 9_999_999_999_999_999;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TID(i64);
 
@@ -69,6 +71,18 @@ impl TID {
     pub fn as_utc(&self) -> DateTime<Utc> {
         (*self).into()
     }
+
+    pub fn as_num(&self) -> i64 {
+        self.0
+    }
+
+    pub fn is_very_very_big(&self) -> bool {
+        self.0 == VERY_VERY_BIG_TID
+    }
+
+    pub fn very_very_big() -> Self {
+        Self(VERY_VERY_BIG_TID)
+    }
 }
 
 impl From<DateTime<FixedOffset>> for TID {
@@ -95,7 +109,7 @@ impl From<TID> for DateTime<Utc> {
 impl TID {
     fn check(num: i64) {
         // Javascript max safe number
-        assert!(num < 9_007_199_254_740_991);
+        assert!(num < 9_007_199_254_740_991 || num == VERY_VERY_BIG_TID);
         assert!(num > 1_749_093_700_000_000);
     }
 }

@@ -1,12 +1,13 @@
 [workspace]
 members = [
-    "crates/chin-sql",
+    "crates/chin-sql/chin-sql",
+    "crates/chin-sql/chin-sql-inner",
+    "crates/chin-sql/chin-sql-derive",
     "crates/chin-tools-types",
     "crates/chin-tools",
-    "crates/chin-sql-derive",
     "crates/chin-wayland-utils",
     "crates/chin-terminal-utils" 
-, "crates/actor-sqlite"]
+, "crates/actor-sqlite", "crates/chin-sql/chin-sql"]
 resolver = "3"
 
 [workspace.dependencies]

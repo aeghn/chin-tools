@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 
-use chin_tools_types::DbType;
-
-use crate::{PlaceHolderType, SegOrVal, SqlSeg};
+use crate::{DbType, PlaceHolderType, SegOrVal, SqlSeg};
 
 use super::sql_value::SqlValue;
 

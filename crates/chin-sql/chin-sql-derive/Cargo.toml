@@ -9,7 +9,7 @@ proc-macro = true
 [dependencies]
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 quote = "1.0"
-chin-tools-types = { path = "../chin-tools-types", features = ["db"]}
+chin-sql = { path = "../chin-sql-inner", package = "chin-sql-inner" }
 proc-macro2 = "1.0.95"
 
 [dev-dependencies]

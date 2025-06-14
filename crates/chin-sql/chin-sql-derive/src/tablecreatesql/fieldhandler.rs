@@ -1,13 +1,14 @@
-use chin_tools_types::DbType;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
+use quote::quote;
 use syn::spanned::Spanned;
 use syn::{Field, PathArguments, Type, TypePath};
 
-pub(crate) fn field_to_sql_type(field: &Field, db_type: DbType) -> Result<String, syn::Error> {
+pub(crate) fn field_stream(column_name: &str, field: &Field) -> Result<TokenStream2, syn::Error> {
     match &field.ty {
-        Type::Path(type_path) => field_to_sql_type_path(field, db_type, type_path),
+        Type::Path(type_path) => parse_field(column_name, field, type_path),
         Type::Group(group) => match group.elem.as_ref() {
-            Type::Path(type_path) => field_to_sql_type_path(field, db_type, type_path),
+            Type::Path(type_path) => parse_field(column_name, field, type_path),
             v => Err(syn::Error::new(
                 field.span(),
                 format!(
@@ -28,14 +29,14 @@ pub(crate) fn field_to_sql_type(field: &Field, db_type: DbType) -> Result<String
     }
 }
 
-fn field_to_sql_type_path(
+fn parse_field(
+    column_name: &str,
     field: &Field,
-    db_type: DbType,
     type_path: &TypePath,
-) -> Result<String, syn::Error> {
+) -> Result<TokenStream2, syn::Error> {
     if let Some(segment) = type_path.path.segments.last() {
         let nullable = segment.ident.to_string().as_str() == "Option";
-        let rt = find_attr_raw_rs_type(field);
+        let rt = find_attr_alias_type(field);
         let raw_rust_type;
         if let Some(Ok(rt)) = rt {
             raw_rust_type = rt;
@@ -60,25 +61,29 @@ fn field_to_sql_type_path(
         let raw_rust_type = raw_rust_type.replace(" ", "").replace("\"", "");
 
         let sql_type = match raw_rust_type.as_str() {
-            "String" => parse_str(field, db_type)?,
-            "SharedStr" => parse_str(field, db_type)?,
-            "i32" => parse_i32(db_type)?,
-            "i64" => parse_i64(db_type)?,
-            "f32" => parse_f32(db_type)?,
-            "f64" => parse_f64(db_type)?,
-            "bool" => parse_bool(db_type)?,
-            "DateTime<FixedOffset>" => parse_datetime_fixedoffset(db_type)?,
-            "DateTime<Utc>" => parse_datetime_utc(db_type)?,
+            "String" => parse_str(field)?,
+            "i32" => quote! { chin_sql::LogicFieldType::I32 },
+            "i64" => quote! { chin_sql::LogicFieldType::I64 },
+            "f32" => quote! { chin_sql::LogicFieldType::F64 },
+            "f64" => quote! { chin_sql::LogicFieldType::F64 },
+            "bool" => quote! { chin_sql::LogicFieldType::Bool },
+            "DateTime<FixedOffset>" => quote! { chin_sql::LogicFieldType::Timestamptz },
+            "DateTime<Utc>" => quote! { chin_sql::LogicFieldType::Timestamp },
             _ => Err(syn::Error::new(
                 field.span(),
                 format!("Unkown Rust Type {:#?}", raw_rust_type.as_str()),
             ))?,
         };
-        if nullable {
-            Ok(sql_type)
-        } else {
-            Ok(sql_type + " not null")
-        }
+
+        // This is the corrected `quote!` block
+        let not_null = !nullable;
+        Ok(quote! {
+            chin_sql::CreateTableField {
+                name: #column_name,
+                kind: #sql_type,
+                not_null: #not_null,
+            }
+        })
     } else {
         Err(syn::Error::new(
             field.span(),
@@ -112,7 +117,7 @@ fn find_attr_length(field: &Field) -> Option<Result<i32, syn::Error>> {
     }
 }
 
-fn find_attr_raw_rs_type(field: &Field) -> Option<Result<String, syn::Error>> {
+fn find_attr_alias_type(field: &Field) -> Option<Result<String, syn::Error>> {
     let mut flag = false;
     for attr in &field.attrs {
         if attr.path().is_ident("gts_type") {
@@ -134,63 +139,17 @@ fn find_attr_raw_rs_type(field: &Field) -> Option<Result<String, syn::Error>> {
     }
 }
 
-// TODO: Sqlite do not really recognize the VARCHAR(<LENGTH>), maybe limit length in the code.
-fn parse_str(field: &Field, _: DbType) -> Result<String, syn::Error> {
+fn parse_str(field: &Field) -> Result<TokenStream2, syn::Error> {
     if let Some(length) = find_attr_length(field) {
         match length {
-            Ok(length) => Ok(format!("VARCHAR({})", length)),
+            Ok(length) => {
+                let length = u16::try_from(length)
+                    .map_err(|e| syn::Error::new(field.span(), e.to_string()))?;
+                Ok(quote! { chin_sql::LogicFieldType::Varchar(#length) })
+            }
             Err(err) => Err(syn::Error::new(field.span(), err.to_string())),
         }
     } else {
-        Ok("TEXT".to_owned())
-    }
-}
-
-fn parse_i32(db_type: DbType) -> Result<String, syn::Error> {
-    match db_type {
-        DbType::Sqlite => Ok("INTEGER".to_owned()),
-        DbType::Postgres => Ok("int4".to_owned()),
-    }
-}
-
-fn parse_i64(db_type: DbType) -> Result<String, syn::Error> {
-    match db_type {
-        DbType::Sqlite => Ok("INTEGER".to_owned()),
-        DbType::Postgres => Ok("int8".to_owned()),
-    }
-}
-
-fn parse_f32(db_type: DbType) -> Result<String, syn::Error> {
-    match db_type {
-        DbType::Sqlite => Ok("REAL".to_owned()),
-        DbType::Postgres => Ok("real".to_owned()),
-    }
-}
-
-fn parse_f64(db_type: DbType) -> Result<String, syn::Error> {
-    match db_type {
-        DbType::Sqlite => Ok("REAL".to_owned()),
-        DbType::Postgres => Ok("double precision".to_owned()),
-    }
-}
-
-fn parse_bool(db_type: DbType) -> Result<String, syn::Error> {
-    match db_type {
-        DbType::Sqlite => Ok("NUMERIC".to_owned()),
-        DbType::Postgres => Ok("BOOLEAN".to_owned()),
-    }
-}
-
-fn parse_datetime_fixedoffset(db_type: DbType) -> Result<String, syn::Error> {
-    match db_type {
-        DbType::Sqlite => Ok("INTEGER".to_owned()),
-        DbType::Postgres => Ok("TIMESTAMPTZ".to_owned()),
-    }
-}
-
-fn parse_datetime_utc(db_type: DbType) -> Result<String, syn::Error> {
-    match db_type {
-        DbType::Sqlite => Ok("INTEGER".to_owned()),
-        DbType::Postgres => Ok("TIMESTAMPTZ".to_owned()),
+        Ok(quote! { chin_sql::LogicFieldType::Text })
     }
 }

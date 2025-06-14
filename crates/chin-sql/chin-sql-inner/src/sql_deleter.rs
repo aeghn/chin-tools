@@ -1,4 +1,4 @@
-use crate::{ChinSqlError, IntoSqlSeg};
+use crate::{ChinSqlError, DbType, IntoSqlSeg};
 
 use super::{SqlSeg, place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
@@ -24,7 +24,7 @@ impl<'a> SqlDeleter<'a> {
 impl<'a> IntoSqlSeg<'a> for SqlDeleter<'a> {
     fn into_sql_seg2(
         self,
-        db_type: chin_tools_types::DbType,
+        db_type: DbType,
         pht: &mut PlaceHolderType,
     ) -> Result<SqlSeg<'a>, ChinSqlError> {
         let mut sb = String::new();

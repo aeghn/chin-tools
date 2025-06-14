@@ -1,6 +1,5 @@
-use chin_tools_types::DbType;
 
-use crate::{ChinSqlError, IntoSqlSeg, PlaceHolderType};
+use crate::{ChinSqlError, DbType, IntoSqlSeg, PlaceHolderType};
 
 use super::{SqlSeg, sql_value::SqlValue};
 

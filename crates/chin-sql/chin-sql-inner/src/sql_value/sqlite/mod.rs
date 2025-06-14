@@ -21,12 +21,9 @@ impl<'a> ToSql for SqlValue<'a> {
                 rusqlite::types::Value::Integer(i64::from(Timestamptz::from(*v))),
             )),
             SqlValue::Bool(v) => v.to_sql(),
-            SqlValue::Opt(v) => match v {
-                Some(v) => v.as_ref().to_sql(),
-                None => None::<String>.to_sql(),
-            },
             SqlValue::F64(v) => v.to_sql(),
             SqlValue::Blob(cow) => cow.to_sql(),
+            SqlValue::Null(rust_field_type) => None::<String>.to_sql(),
         }
     }
 }
@@ -48,14 +45,11 @@ impl<'a> From<SqlValue<'a>> for Value {
             SqlValue::F64(v) => Value::from(v),
             SqlValue::Str(v) => Value::from(v.to_string()),
             SqlValue::FixedOffset(date_time) => {
-                Value::from(i64::from(Timestamptz::from(date_time)))
-            }
+                        Value::from(i64::from(Timestamptz::from(date_time)))
+                    }
             SqlValue::Utc(date_time) => Value::from(i64::from(Timestamptz::from(date_time))),
             SqlValue::Blob(v) => Value::from(v.to_vec()),
-            SqlValue::Opt(v) => match v {
-                Some(v) => Value::from(*v),
-                None => Value::Null,
-            },
+            SqlValue::Null(_) => Value::Null,
         }
     }
 }
@@ -75,7 +69,7 @@ mod tests {
             "insert into ttime values(?)",
             [i64::from(Timestamptz::from(Local::now().fixed_offset()))],
         )
-        .unwrap();
+            .unwrap();
         let time = conn
             .query_row("select * from ttime", [], |e| {
                 let t: String = e.get("t").unwrap();

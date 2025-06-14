@@ -1,4 +1,4 @@
-use crate::{ChinSqlError, IntoSqlSeg, SegOrVal, SqlSeg};
+use crate::{ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlSeg};
 
 use super::{place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
@@ -15,21 +15,21 @@ enum SqlReaderSeg<'a> {
     Custom(Box<dyn CustomSqlSeg<'a>>),
     Sub {
         alias: &'a str,
-        query: SqlReader<'a>,
+        query: SqlBuilder<'a>,
     },
 }
 
-pub struct SqlReader<'a> {
+pub struct SqlBuilder<'a> {
     segs: Vec<SqlReaderSeg<'a>>,
 }
 
-impl<'a> Default for SqlReader<'a> {
+impl<'a> Default for SqlBuilder<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> SqlReader<'a> {
+impl<'a> SqlBuilder<'a> {
     pub fn new() -> Self {
         Self { segs: vec![] }
     }
@@ -79,7 +79,7 @@ impl<'a> SqlReader<'a> {
         self
     }
 
-    pub fn sub(mut self, alias: &'a str, query: SqlReader<'a>) -> Self {
+    pub fn sub(mut self, alias: &'a str, query: SqlBuilder<'a>) -> Self {
         self.segs.push(SqlReaderSeg::Sub { alias, query });
         self
     }
@@ -143,10 +143,10 @@ impl<'a> CustomSqlSeg<'a> for LimitOffset {
     }
 }
 
-impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
+impl<'a> IntoSqlSeg<'a> for SqlBuilder<'a> {
     fn into_sql_seg2(
         self,
-        db_type: chin_tools_types::DbType,
+        db_type: DbType,
         pht: &mut PlaceHolderType,
     ) -> Result<SqlSeg<'a>, ChinSqlError> {
         if self.segs.is_empty() {
@@ -189,9 +189,11 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
                 SqlReaderSeg::SegOrVal(sql_seg) => match sql_seg {
                     SegOrVal::Str(s) => {
                         sb.push_str(&s);
+                        sb.push(' ');
                     }
                     SegOrVal::Val(val) => {
                         sb.push_str(&pht.next_ph());
+                        sb.push(' ');
                         values.push(val);
                     }
                 },

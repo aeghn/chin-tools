@@ -11,12 +11,27 @@ use std::{
     sync::Arc,
 };
 
-use chin_tools_types::{time_type::TID, LogicFieldType};
+use chin_tools_types::time_type::TID;
 use chrono::{DateTime, FixedOffset, Utc};
 use rusqlite::types::Value;
 use sqlite::sqltype::Timestamptz;
 
 use crate::ChinSqlError;
+
+#[derive(Clone, Debug)]
+pub enum RustFieldType {
+    Bool,
+    I8,
+    I16,
+    I32,
+    I64,
+    F64,
+    Text,
+    Blob,
+    Timestamptz,
+    Timestamp,
+    Any,
+}
 
 #[derive(Clone, Debug)]
 pub enum SqlValue<'a> {
@@ -30,8 +45,7 @@ pub enum SqlValue<'a> {
     FixedOffset(DateTime<FixedOffset>),
     Utc(DateTime<Utc>),
     Blob(Cow<'a, [u8]>),
-    Opt(Option<Box<SqlValue<'a>>>),
-    Null(LogicFieldType)
+    Null(RustFieldType),
 }
 
 #[derive(Clone, Debug)]
@@ -50,7 +64,6 @@ impl Deref for SqlValueOwned {
     }
 }
 
-
 impl<'a, T: Into<SqlValue<'a>>> From<T> for SqlValueOwned {
     fn from(value: T) -> Self {
         let value = value.into();
@@ -61,7 +74,7 @@ impl<'a, T: Into<SqlValue<'a>>> From<T> for SqlValueOwned {
 impl From<Value> for SqlValueOwned {
     fn from(value: Value) -> Self {
         match value {
-            Value::Null => Self(SqlValue::Opt(None)),
+            Value::Null => Self(SqlValue::Null(RustFieldType::Any)),
             Value::Integer(v) => Self(SqlValue::I64(v)),
             Value::Real(v) => Self(SqlValue::F64(v)),
             Value::Text(v) => Self(SqlValue::Str(v.into())),
@@ -79,10 +92,6 @@ impl<'a> Borrow<SqlValue<'a>> for SqlValueOwned {
 impl<'a> SqlValue<'a> {
     pub fn live_static(self) -> SqlValue<'static> {
         match self {
-            SqlValue::Opt(v) => match v {
-                        Some(v) => SqlValue::Opt(Some(Box::new(v.live_static()))),
-                        None => SqlValue::Opt(None),
-                    },
             SqlValue::I8(v) => SqlValue::I8(v),
             SqlValue::I16(v) => SqlValue::I16(v),
             SqlValue::I32(v) => SqlValue::I32(v),
@@ -128,12 +137,6 @@ impl<'a> From<TID> for SqlValue<'a> {
     }
 }
 
-impl<'a> From<&'a String> for SqlValue<'a> {
-    fn from(val: &'a String) -> Self {
-        SqlValue::Str(Cow::Borrowed(val))
-    }
-}
-
 impl<'a> From<&'a str> for SqlValue<'a> {
     fn from(val: &'a str) -> Self {
         SqlValue::Str(Cow::Borrowed(val))
@@ -164,27 +167,6 @@ impl<'a> From<DateTime<FixedOffset>> for SqlValue<'a> {
     }
 }
 
-impl<'a> From<&'a DateTime<FixedOffset>> for SqlValue<'a> {
-    fn from(val: &'a DateTime<FixedOffset>) -> Self {
-        SqlValue::FixedOffset(*val)
-    }
-}
-
-impl<'a> From<&'a DateTime<Utc>> for SqlValue<'a> {
-    fn from(val: &'a DateTime<Utc>) -> Self {
-        SqlValue::Utc(*val)
-    }
-}
-
-impl<'a, T: Into<SqlValue<'a>>> From<Option<T>> for SqlValue<'a> {
-    fn from(val: Option<T>) -> Self {
-        SqlValue::Opt(val.map(|e| {
-            let sv: SqlValue<'a> = e.into();
-            sv.into()
-        }))
-    }
-}
-
 impl<'a> From<f64> for SqlValue<'a> {
     fn from(val: f64) -> Self {
         SqlValue::F64(val)
@@ -192,7 +174,7 @@ impl<'a> From<f64> for SqlValue<'a> {
 }
 
 macro_rules! try_from_sql_value {
-    ($tp:ty, $($variant:ident => $conv:expr),*) => {
+    ($tp:ty, $rlt:expr, $($variant:ident => $conv:expr),*) => {
         impl<'a> TryFrom<SqlValue<'a>> for $tp {
             type Error = ChinSqlError;
 
@@ -213,19 +195,8 @@ macro_rules! try_from_sql_value {
 
             fn try_from(value: SqlValue<'a>) -> Result<Self, Self::Error> {
                 match value {
-                    SqlValue::Opt(v) => {
-                        if let Some(v) = v {
-                            match *v {
-                                $(
-                                    SqlValue::$variant(v) => Ok(Some($conv(v)?)),
-                                )*
-                                _ => Err(ChinSqlError::TransformError(
-                                    concat!("Unable to transform ", stringify!($tp)).to_owned(),
-                                )),
-                            }
-                        } else {
-                            Ok(None)
-                        }
+                    SqlValue::Null(_) => {
+                        Ok(None)
                     },
                     $(
                         SqlValue::$variant(v) => Ok(Some($conv(v)?)),
@@ -236,27 +207,48 @@ macro_rules! try_from_sql_value {
                 }
             }
         }
+
+        impl<'a> From<&$tp> for SqlValue<'a> {
+            fn from(val: &$tp) -> Self {
+                val.to_owned().into()
+            }
+        }
+
+        impl<'a> From<Option<$tp>> for SqlValue<'a> {
+            fn from(val: Option<$tp>) -> Self {
+                match val {
+                    Some(v) => v.into(),
+                    None => SqlValue::Null($rlt),
+                }
+            }
+        }
+
+        impl<'a> From<Option<&$tp>> for SqlValue<'a> {
+            fn from(val: Option<&$tp>) -> Self {
+                match val {
+                    Some(v) => v.to_owned().into(),
+                    None => SqlValue::Null($rlt),
+                }
+            }
+        }
     };
 }
 
-try_from_sql_value!(DateTime<FixedOffset>,
+try_from_sql_value!(DateTime<FixedOffset>, RustFieldType::Timestamptz,
     FixedOffset => |v: DateTime<FixedOffset>| Ok(v),
     I64 => |v: i64| Timestamptz::try_from(v).map(|tz| *tz),
     Str => |v: Cow<'a, str>|  DateTime::parse_from_str(&v, "%Y-%m-%dT%H:%M:%S%.9f %z").map_err(|err| ChinSqlError::TransformError(err.to_string()))
 );
 
-try_from_sql_value!(bool,
+try_from_sql_value!(bool, RustFieldType::Bool,
     Bool => |v: bool| Ok(v),
     I64 => |v: i64| Ok(v != 0)
 );
-try_from_sql_value!(i64, I64 => |v: i64| Ok(v));
-try_from_sql_value!(i32, I32 => |v: i32| Ok(v));
-try_from_sql_value!(f64, F64 => |v: f64|Ok(v));
-try_from_sql_value!(Cow<'a, str>, Str => |v: Cow<'a, str>| Ok(v));
-
-try_from_sql_value!(String,
+try_from_sql_value!(i64, RustFieldType::I64, I64 => |v: i64| Ok(v));
+try_from_sql_value!(i32, RustFieldType::I32, I32 => |v: i32| Ok(v));
+try_from_sql_value!(f64, RustFieldType::F64, F64 => |v: f64|Ok(v));
+try_from_sql_value!(Cow<'a, str>, RustFieldType::Text, Str => |v: Cow<'a, str>| Ok(v));
+try_from_sql_value!(String, RustFieldType::Text,
     Str => |v: Cow<'a, str>| Ok(v.to_string())
 );
-
-try_from_sql_value!(TID, I64 => |v: i64|Ok(v.into()));
-
+try_from_sql_value!(TID, RustFieldType::I64, I64 => |v: i64|Ok(v.into()));
