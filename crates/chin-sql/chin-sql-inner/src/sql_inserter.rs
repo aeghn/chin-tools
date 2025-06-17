@@ -1,4 +1,3 @@
-
 use crate::{ChinSqlError, DbType, IntoSqlSeg, PlaceHolderType};
 
 use super::{SqlSeg, sql_value::SqlValue};

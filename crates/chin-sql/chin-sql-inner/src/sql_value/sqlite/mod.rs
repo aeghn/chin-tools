@@ -5,7 +5,6 @@ use rusqlite::{
     types::{ToSqlOutput, Value},
 };
 
-
 use super::{SqlValue, SqlValueStatic};
 
 pub mod sqltype;

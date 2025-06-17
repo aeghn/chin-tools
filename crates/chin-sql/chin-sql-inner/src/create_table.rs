@@ -58,17 +58,25 @@ impl<'a> IntoSqlSeg<'a> for &CreateTableSql {
             .sov(self.table_name)
             .sov("(");
 
-        let columns: Vec<String>= self.fields.iter().map(|f| {
-            format!(
-                "{} {} {}",
-                f.name,
-                f.kind.to_type(db_type),
-                if f.not_null { "not null" } else { "" }
-            )
-        }).collect();
+        let columns: Vec<String> = self
+            .fields
+            .iter()
+            .map(|f| {
+                format!(
+                    "{} {} {}",
+                    f.name,
+                    f.kind.to_type(db_type),
+                    if f.not_null { "not null" } else { "" }
+                )
+            })
+            .collect();
         sr = sr.sov(columns.join(", "));
         if !self.pkey.is_empty() {
-            sr = sr.sov(", ").sov("primary key (").sov(self.pkey.join(",")).sov(")");
+            sr = sr
+                .sov(", ")
+                .sov("primary key (")
+                .sov(self.pkey.join(","))
+                .sov(")");
         }
         sr = sr.sov(")");
 

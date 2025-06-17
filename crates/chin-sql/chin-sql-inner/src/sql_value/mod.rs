@@ -4,12 +4,7 @@ mod sqlite;
 #[cfg(feature = "postgres")]
 mod postgres;
 
-use std::{
-    borrow::{Borrow, Cow},
-    collections::HashMap,
-    ops::Deref,
-    sync::Arc,
-};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 pub mod time_type;
 

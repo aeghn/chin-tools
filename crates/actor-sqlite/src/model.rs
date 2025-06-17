@@ -7,14 +7,8 @@ use crate::Result;
 
 #[derive(Debug)]
 pub enum CmdReq {
-    Exec {
-        sql: String,
-        params: Vec<Value>,
-    },
-    QueryMap {
-        sql: String,
-        params: Vec<Value>,
-    },
+    Exec { sql: String, params: Vec<Value> },
+    QueryMap { sql: String, params: Vec<Value> },
 }
 
 #[derive(Debug)]
@@ -58,7 +52,7 @@ pub struct RspWrapper<T, V> {
 
 #[derive(Clone, Debug)]
 pub struct ActorSqliteRow {
-    pub cells: Vec<(Arc<str>, Value)>
+    pub cells: Vec<(Arc<str>, Value)>,
 }
 
 pub(crate) type SVRow = ActorSqliteRow;

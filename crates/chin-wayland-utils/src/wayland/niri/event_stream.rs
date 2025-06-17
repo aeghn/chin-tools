@@ -24,18 +24,15 @@ where
     let reader = BufReader::new(stdout);
 
     log::info!("begin to read niri stream");
-    reader
-        .lines()
-        .map_while(Result::ok)
-        .for_each(|line| {
-            let event: Result<Event, serde_json::Error> = serde_json::from_str(&line);
-            match event {
-                Ok(e) => func(e),
-                Err(e) => {
-                    log::warn!("unable to convert {} to event, {}", line, e)
-                }
+    reader.lines().map_while(Result::ok).for_each(|line| {
+        let event: Result<Event, serde_json::Error> = serde_json::from_str(&line);
+        match event {
+            Ok(e) => func(e),
+            Err(e) => {
+                log::warn!("unable to convert {} to event, {}", line, e)
             }
-        });
+        }
+    });
 
     Ok(())
 }

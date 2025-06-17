@@ -25,8 +25,8 @@ pub enum ActorSqlError {
 type Result<T> = std::result::Result<T, ActorSqlError>;
 type EResult = Result<()>;
 
-pub use rusqlite::types::Value as RsValue;
 pub use model::ActorSqliteRow;
+pub use rusqlite::types::Value as RsValue;
 
 impl From<rusqlite::Error> for ActorSqlError {
     fn from(value: rusqlite::Error) -> Self {

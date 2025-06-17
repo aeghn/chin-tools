@@ -18,7 +18,16 @@ struct ExampleTable {
 #[test]
 fn table_generate() {
     println!("{:#?}", ExampleTable::create_sql());
-    println!("{}", ExampleTable::create_sql().into_sql_seg2(DbType::Postgres, &mut chin_sql::PlaceHolderType::QustionMark).unwrap().seg);
+    println!(
+        "{}",
+        ExampleTable::create_sql()
+            .into_sql_seg2(
+                DbType::Postgres,
+                &mut chin_sql::PlaceHolderType::QustionMark
+            )
+            .unwrap()
+            .seg
+    );
 
     assert_eq!("example_table", ExampleTable::TABLE);
 

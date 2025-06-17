@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use flume::{Receiver, Sender};
 
-use crate::{model::*, Result, ActorSqlError};
 use crate::worker::WorkerConfig;
+use crate::{ActorSqlError, Result, model::*};
 
 use super::{client::ActorSqliteConnClient, worker::ActorSqliteWorker};
 

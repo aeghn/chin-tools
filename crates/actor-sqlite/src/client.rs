@@ -1,6 +1,6 @@
 use flume::Sender;
 
-use crate::{model::*, Result, ActorSqlError, EResult};
+use crate::{ActorSqlError, EResult, Result, model::*};
 
 #[derive(Clone)]
 pub struct ActorSqliteTxClient {
