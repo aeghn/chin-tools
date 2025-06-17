@@ -29,7 +29,7 @@ pub fn crud_tools(input: TokenStream) -> TokenStream {
 
     let fields: Vec<&Field> = fields.iter().collect();
 
-    let tquery_by_pkey = query_by_pkey(&fields);
+    let tquery_by_pkey = pkeys(&fields);
     let tto_sql_inserter = to_sql_inserter(&fields);
     let expanded = quote! {
         impl #name {
@@ -59,7 +59,7 @@ pub fn to_sql_inserter(fields: &Vec<&Field>) -> TokenStream2 {
     }
 }
 
-pub fn query_by_pkey(fields: &Vec<&Field>) -> TokenStream2 {
+pub fn pkeys(fields: &Vec<&Field>) -> TokenStream2 {
     let pkey_fields: Vec<&&Field> = fields
         .iter()
         .filter(|f| {
@@ -93,8 +93,15 @@ pub fn query_by_pkey(fields: &Vec<&Field>) -> TokenStream2 {
     }
 
     let expanded = quote! {
-        pub fn query_by_pkey_sql(#params) -> chin_sql::SqlBuilder<'static> {
+        pub fn pkey_reader<'a>(#params) -> chin_sql::SqlBuilder<'a> {
             chin_sql::SqlBuilder::read_all(Self::TABLE)
+            .r#where(chin_sql::Wheres::and([
+                #sql
+            ]))
+        }
+
+        pub fn pkey_updater<'c>(#params) -> chin_sql::SqlUpdater<'c> {
+            chin_sql::SqlUpdater::new(Self::TABLE)
             .r#where(chin_sql::Wheres::and([
                 #sql
             ]))

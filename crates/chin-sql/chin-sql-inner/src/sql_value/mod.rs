@@ -14,25 +14,9 @@ use std::{
 pub mod time_type;
 
 use chrono::{DateTime, FixedOffset, Utc};
-use rusqlite::types::Value;
 use sqlite::sqltype::Timestamptz;
 
-use crate::{time_type::TID, ChinSqlError};
-
-#[derive(Clone, Debug)]
-pub enum RustFieldType {
-    Bool,
-    I8,
-    I16,
-    I32,
-    I64,
-    F64,
-    Text,
-    Blob,
-    Timestamptz,
-    Timestamp,
-    Any,
-}
+use crate::{ChinSqlError, LogicFieldType, time_type::TID};
 
 #[derive(Clone, Debug)]
 pub enum SqlValue<'a> {
@@ -46,48 +30,15 @@ pub enum SqlValue<'a> {
     FixedOffset(DateTime<FixedOffset>),
     Utc(DateTime<Utc>),
     Blob(Cow<'a, [u8]>),
-    Null(RustFieldType),
+    Null(LogicFieldType),
+    NullUnknown,
 }
+
+pub type SqlValueStatic = SqlValue<'static>;
 
 #[derive(Clone, Debug)]
-pub struct SqlValueOwned(SqlValue<'static>);
-
-#[derive(Clone, Debug)]
-pub struct SqlValueRow<T> {
-    pub row: HashMap<Arc<str>, T>,
-}
-
-impl Deref for SqlValueOwned {
-    type Target = SqlValue<'static>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'a, T: Into<SqlValue<'a>>> From<T> for SqlValueOwned {
-    fn from(value: T) -> Self {
-        let value = value.into();
-        Self(value.live_static())
-    }
-}
-
-impl From<Value> for SqlValueOwned {
-    fn from(value: Value) -> Self {
-        match value {
-            Value::Null => Self(SqlValue::Null(RustFieldType::Any)),
-            Value::Integer(v) => Self(SqlValue::I64(v)),
-            Value::Real(v) => Self(SqlValue::F64(v)),
-            Value::Text(v) => Self(SqlValue::Str(v.into())),
-            Value::Blob(v) => Self(SqlValue::Blob(v.into())),
-        }
-    }
-}
-
-impl<'a> Borrow<SqlValue<'a>> for SqlValueOwned {
-    fn borrow(&self) -> &SqlValue<'a> {
-        &self.0
-    }
+pub struct SqlValueRow {
+    pub row: HashMap<Arc<str>, SqlValue<'static>>,
 }
 
 impl<'a> SqlValue<'a> {
@@ -104,6 +55,7 @@ impl<'a> SqlValue<'a> {
             SqlValue::Blob(cow) => SqlValue::Blob(Cow::Owned(cow.to_vec())),
             SqlValue::Str(cow) => SqlValue::Str(Cow::Owned(cow.into_owned())),
             SqlValue::Null(logic_field_type) => SqlValue::Null(logic_field_type),
+            SqlValue::NullUnknown => unreachable!(),
         }
     }
 }
@@ -235,21 +187,20 @@ macro_rules! try_from_sql_value {
     };
 }
 
-try_from_sql_value!(DateTime<FixedOffset>, RustFieldType::Timestamptz,
+try_from_sql_value!(DateTime<FixedOffset>, LogicFieldType::Timestamptz,
     FixedOffset => |v: DateTime<FixedOffset>| Ok(v),
     I64 => |v: i64| Timestamptz::try_from(v).map(|tz| *tz),
     Str => |v: Cow<'a, str>|  DateTime::parse_from_str(&v, "%Y-%m-%dT%H:%M:%S%.9f %z").map_err(|err| ChinSqlError::TransformError(err.to_string()))
 );
-
-try_from_sql_value!(bool, RustFieldType::Bool,
+try_from_sql_value!(bool, LogicFieldType::Bool,
     Bool => |v: bool| Ok(v),
     I64 => |v: i64| Ok(v != 0)
 );
-try_from_sql_value!(i64, RustFieldType::I64, I64 => |v: i64| Ok(v));
-try_from_sql_value!(i32, RustFieldType::I32, I32 => |v: i32| Ok(v));
-try_from_sql_value!(f64, RustFieldType::F64, F64 => |v: f64|Ok(v));
-try_from_sql_value!(Cow<'a, str>, RustFieldType::Text, Str => |v: Cow<'a, str>| Ok(v));
-try_from_sql_value!(String, RustFieldType::Text,
+try_from_sql_value!(i64, LogicFieldType::I64, I64 => |v: i64| Ok(v));
+try_from_sql_value!(i32, LogicFieldType::I32, I32 => |v: i32| Ok(v));
+try_from_sql_value!(f64, LogicFieldType::F64, F64 => |v: f64|Ok(v));
+try_from_sql_value!(Cow<'a, str>, LogicFieldType::Text, Str => |v: Cow<'a, str>| Ok(v));
+try_from_sql_value!(String, LogicFieldType::Text,
     Str => |v: Cow<'a, str>| Ok(v.to_string())
 );
-try_from_sql_value!(TID, RustFieldType::I64, I64 => |v: i64|Ok(v.into()));
+try_from_sql_value!(TID, LogicFieldType::I64, I64 => |v: i64|Ok(v.into()));

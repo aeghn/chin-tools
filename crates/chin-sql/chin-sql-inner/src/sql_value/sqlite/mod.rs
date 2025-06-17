@@ -1,8 +1,12 @@
 use sqltype::Timestamptz;
 
-use rusqlite::{ToSql, types::Value};
+use rusqlite::{
+    ToSql,
+    types::{ToSqlOutput, Value},
+};
 
-use super::{SqlValue, SqlValueOwned};
+
+use super::{SqlValue, SqlValueStatic};
 
 pub mod sqltype;
 
@@ -23,14 +27,9 @@ impl<'a> ToSql for SqlValue<'a> {
             SqlValue::Bool(v) => v.to_sql(),
             SqlValue::F64(v) => v.to_sql(),
             SqlValue::Blob(cow) => cow.to_sql(),
-            SqlValue::Null(rust_field_type) => None::<String>.to_sql(),
+            SqlValue::Null(_) => Ok(ToSqlOutput::Owned(Value::Null)),
+            SqlValue::NullUnknown => Ok(ToSqlOutput::Owned(Value::Null)),
         }
-    }
-}
-
-impl ToSql for SqlValueOwned {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        self.0.to_sql()
     }
 }
 
@@ -45,11 +44,24 @@ impl<'a> From<SqlValue<'a>> for Value {
             SqlValue::F64(v) => Value::from(v),
             SqlValue::Str(v) => Value::from(v.to_string()),
             SqlValue::FixedOffset(date_time) => {
-                        Value::from(i64::from(Timestamptz::from(date_time)))
-                    }
+                Value::from(i64::from(Timestamptz::from(date_time)))
+            }
             SqlValue::Utc(date_time) => Value::from(i64::from(Timestamptz::from(date_time))),
             SqlValue::Blob(v) => Value::from(v.to_vec()),
             SqlValue::Null(_) => Value::Null,
+            SqlValue::NullUnknown => Value::Null,
+        }
+    }
+}
+
+impl From<Value> for SqlValueStatic {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Null => SqlValue::NullUnknown,
+            Value::Integer(v) => SqlValue::I64(v),
+            Value::Real(v) => SqlValue::F64(v),
+            Value::Text(v) => SqlValue::Str(v.into()),
+            Value::Blob(v) => SqlValue::Blob(v.into()),
         }
     }
 }
@@ -69,7 +81,7 @@ mod tests {
             "insert into ttime values(?)",
             [i64::from(Timestamptz::from(Local::now().fixed_offset()))],
         )
-            .unwrap();
+        .unwrap();
         let time = conn
             .query_row("select * from ttime", [], |e| {
                 let t: String = e.get("t").unwrap();
