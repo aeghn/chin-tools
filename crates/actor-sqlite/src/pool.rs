@@ -44,11 +44,14 @@ impl InnerActorSqlitePool {
                 ActorSqliteWorker::builder()
                     .path(&self.config.path)
                     .spawn(self.worker_rx.clone())?;
+            } else {
+                return Ok(())
             }
         }
     }
 
     pub async fn get(&self) -> Result<ActorSqliteConnClient> {
+        self.check_size()?;
         Ok(ActorSqliteConnClient {
             inner: self.worker_tx.clone(),
         })
