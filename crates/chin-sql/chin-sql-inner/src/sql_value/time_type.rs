@@ -1,6 +1,9 @@
 use std::{
     fmt::{Display, Formatter},
-    sync::{Arc, LazyLock, atomic::AtomicI64},
+    sync::{
+        Arc, LazyLock,
+        atomic::{AtomicI64, Ordering},
+    },
 };
 
 use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
@@ -25,10 +28,24 @@ static COUNTER: LazyLock<Arc<AtomicI64>> = LazyLock::new(|| Arc::new(AtomicI64::
 
 impl Default for TID {
     fn default() -> Self {
-        Self(
-            Utc::now().timestamp_millis() * 1000
-                + COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 1000,
-        )
+        loop {
+            let time = Utc::now().timestamp_millis() * 1000;
+            let current = COUNTER.load(std::sync::atomic::Ordering::SeqCst);
+            let new = if time > current {
+                time + 1
+            } else {
+                current + 1
+            };
+
+            if COUNTER.compare_exchange(
+                current,
+                new,
+                std::sync::atomic::Ordering::SeqCst,
+                Ordering::Acquire,
+            ).is_ok() {
+                return Self(new);
+            }
+        }
     }
 }
 
@@ -140,5 +157,16 @@ mod tests {
         let fixed: chrono::DateTime<FixedOffset> =
             Utc::now().with_timezone(&TimeZone::from_offset(Local::now().offset()));
         println!("{:#?} -> {}", fixed, fixed.timestamp_millis());
+    }
+
+    use crate::sql_value::TID;
+    #[test]
+    fn test_generate() {
+       for i in 1..10000 {
+        let c = TID::default();
+        if c.as_num() % 500 == 0 {
+            print!("{}, ", c);
+        }
+       }
     }
 }
