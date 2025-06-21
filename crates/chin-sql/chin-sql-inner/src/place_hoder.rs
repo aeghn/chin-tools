@@ -49,3 +49,9 @@ impl<'a> From<SqlValue<'a>> for SegOrVal<'a> {
         Self::Val(value)
     }
 }
+
+impl<'a> SegOrVal<'a> {
+    pub fn val<T: Into<SqlValue<'a>>>(val: T) -> Self {
+        SegOrVal::Val(val.into())
+    }
+}

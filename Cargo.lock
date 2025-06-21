@@ -173,6 +173,7 @@ dependencies = [
  "chrono",
  "log",
  "postgres-types",
+ "rand",
  "rusqlite",
  "serde",
  "thiserror",

@@ -146,6 +146,9 @@ macro_rules! try_from_sql_value {
                     SqlValue::Null(_) => {
                         Ok(None)
                     },
+                    SqlValue::NullUnknown => {
+                        Ok(None)
+                    },
                     $(
                         SqlValue::$variant(v) => Ok(Some($conv(v)?)),
                     )*

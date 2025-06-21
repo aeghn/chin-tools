@@ -74,6 +74,10 @@ impl<'a> Wheres<'a> {
     }
 
     pub fn ilike<T: AsRef<str>>(key: &'a str, v: T, exact: ILikeType) -> Self {
+        let s = v.as_ref();
+        if s.is_empty() {
+            return Wheres::None;
+        }
         Self::IIike {
             key,
             value: match exact {
@@ -112,6 +116,10 @@ impl<'a> Wheres<'a> {
             Some(t) => map(t),
             None => Wheres::None,
         }
+    }
+
+    pub fn not<T: Into<Wheres<'a>>>(values: T) -> Self {
+        Self::Not(Box::new(values.into()))
     }
 
     pub fn and<T: Into<Vec<Wheres<'a>>>>(values: T) -> Self {

@@ -189,7 +189,7 @@ impl ActorSqliteWorker {
                 }
                 Err(err) => {
                     println!("unable to receive {}", err);
-                    unimplemented!()
+                    unreachable!()
                 }
             }
         }

@@ -32,17 +32,20 @@ impl Default for TID {
             let time = Utc::now().timestamp_millis() * 1000;
             let current = COUNTER.load(std::sync::atomic::Ordering::SeqCst);
             let new = if time > current {
-                time + 1
+                time + rand::random_range(1..1000)
             } else {
                 current + 1
             };
 
-            if COUNTER.compare_exchange(
-                current,
-                new,
-                std::sync::atomic::Ordering::SeqCst,
-                Ordering::Acquire,
-            ).is_ok() {
+            if COUNTER
+                .compare_exchange(
+                    current,
+                    new,
+                    std::sync::atomic::Ordering::SeqCst,
+                    Ordering::Acquire,
+                )
+                .is_ok()
+            {
                 return Self(new);
             }
         }
@@ -84,18 +87,22 @@ impl From<DateTime<Utc>> for TID {
 }
 
 impl TID {
+    #[inline]
     pub fn as_utc(&self) -> DateTime<Utc> {
         (*self).into()
     }
 
+    #[inline]
     pub fn as_num(&self) -> i64 {
         self.0
     }
 
+    #[inline]
     pub fn is_never(&self) -> bool {
         self.0 == TID_NEVER
     }
 
+    #[inline]
     pub fn never() -> Self {
         Self(TID_NEVER)
     }
@@ -162,11 +169,11 @@ mod tests {
     use crate::sql_value::TID;
     #[test]
     fn test_generate() {
-       for i in 1..10000 {
-        let c = TID::default();
-        if c.as_num() % 500 == 0 {
-            print!("{}, ", c);
+        for i in 1..10000 {
+            let c = TID::default();
+            if c.as_num() % 500 == 0 {
+                print!("{}, ", c);
+            }
         }
-       }
     }
 }

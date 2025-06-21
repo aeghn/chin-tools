@@ -99,6 +99,12 @@ impl<'a> SqlBuilder<'a> {
         self.segs.push(SqlBuilderSeg::LimitOffset(limit));
         self
     }
+
+    pub fn merge(mut self, other: SqlBuilder<'a>) -> Self {
+        let SqlBuilder { segs } = other;
+        self.segs.extend(segs);
+        self
+    }
 }
 
 pub struct LimitOffset {
