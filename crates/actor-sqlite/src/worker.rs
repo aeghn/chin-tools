@@ -1,4 +1,5 @@
 use flume::Receiver;
+use log::{debug, error};
 use rusqlite::{Connection, OpenFlags, Statement, Transaction, types::Value};
 use std::{
     path::{Path, PathBuf},
@@ -104,7 +105,7 @@ pub(crate) fn conn_run(
     match command {
         ConnCmdReq::Transaction => {
             let tranaction = match conn.transaction() {
-                Ok(tx) => tx,
+                Ok(transaction) => transaction,
                 Err(err) => {
                     otx.send(Err(ActorSqlError::CustomRusqliteError(err)))?;
                     return Ok(());
@@ -112,6 +113,7 @@ pub(crate) fn conn_run(
             };
             let (tx, rx) = flume::unbounded();
             otx.send(Ok(ConnCmdRsp::Tx(tx)))?;
+            debug!("actlite: created tranaction");
             tx_run(tranaction, rx)?;
         }
         ConnCmdReq::Command(cmd) => match CmdExecutor::from(conn).handle(cmd) {
@@ -133,11 +135,13 @@ pub(crate) fn tx_run<'a>(
 ) -> Result<()> {
     let executor = CmdExecutor::from(&tx);
     loop {
+        log::debug!("begin to recv on transaction");
         let RspWrapper { command, otx } = rx.recv()?;
-        log::debug!("conn run {:#?}", command);
+        log::debug!("transaction run {:#?}", command);
         match command {
             TxCmdReq::Command(cmd) => match executor.handle(cmd) {
                 Ok(rsp) => {
+                    debug!("actlite: transaction execute done {:?}", rsp);
                     otx.send(Ok(TxCmdRsp::Cmd(rsp)))?;
                 }
                 Err(err) => {
@@ -147,6 +151,7 @@ pub(crate) fn tx_run<'a>(
             TxCmdReq::Commit => {
                 match tx.commit() {
                     Ok(_) => {
+                        debug!("actlite: transaction commit");
                         otx.send(Ok(TxCmdRsp::Committed))?;
                     }
                     Err(err) => {
@@ -158,6 +163,7 @@ pub(crate) fn tx_run<'a>(
             TxCmdReq::Rollback => {
                 match tx.rollback() {
                     Ok(_) => {
+                        debug!("actlite: transaction rollback");
                         otx.send(Ok(TxCmdRsp::Rollbacked))?;
                     }
                     Err(err) => {
@@ -185,11 +191,18 @@ impl ActorSqliteWorker {
         loop {
             match in_rx.recv() {
                 Ok(cb) => {
-                    conn_run(&mut conn, cb).unwrap();
+                    let result = conn_run(&mut conn, cb);
+                    match result {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("loophandle -> ActorSqlError {}", err);
+                            break;
+                        }
+                    }
                 }
                 Err(err) => {
-                    println!("unable to receive {}", err);
-                    unreachable!()
+                    error!("loophandle -> unable to receive {}", err);
+                    break;
                 }
             }
         }

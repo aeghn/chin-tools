@@ -1,4 +1,5 @@
 use flume::Sender;
+use log::debug;
 
 use crate::{ActorSqlError, EResult, Result, model::*};
 
@@ -55,6 +56,7 @@ impl ActorSqliteConnClient {
 impl ActorSqliteTxClient {
     async fn inner(&self, command: TxCmdReq) -> Result<TxCmdRsp> {
         let (otx, orx) = oneshot::channel();
+        debug!("begin to send tx cmd {:?}", command);
         self.inner.send(RspWrapper { command, otx })?;
         orx.await?
     }

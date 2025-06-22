@@ -21,10 +21,11 @@ impl TryFrom<WorkerConfig> for ActorSqlitePool {
     fn try_from(config: WorkerConfig) -> Result<Self> {
         let (worker_tx, worker_rx) = flume::unbounded();
 
-        for i in 0..config.pool_size.unwrap_or(4) {
+        for i in 0..config.pool_size.unwrap_or(1) {
             log::info!("creating initial worker-{i}");
             ActorSqliteWorker::builder()
                 .path(&config.path)
+                .journal_mode(crate::worker::JournalMode::Wal)
                 .spawn(worker_rx.clone())?;
         }
         let inner = InnerActorSqlitePool {
@@ -38,7 +39,7 @@ impl TryFrom<WorkerConfig> for ActorSqlitePool {
 
 impl InnerActorSqlitePool {
     pub fn check_size(&self) -> Result<()> {
-        let full_count = self.config.pool_size.unwrap_or(4) as usize;
+        let full_count = self.config.pool_size.unwrap_or(1) as usize;
         loop {
             if self.worker_tx.receiver_count() < full_count {
                 ActorSqliteWorker::builder()
