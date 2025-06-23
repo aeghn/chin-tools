@@ -1,11 +1,7 @@
 use flume::Receiver;
 use log::{debug, error};
-use rusqlite::{Connection, OpenFlags, Statement, Transaction, types::Value};
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-    thread,
-};
+use rusqlite::{Connection, Statement, Transaction, types::Value};
+use std::sync::Arc;
 
 use crate::{ActorSqlError, Result, model::*};
 
@@ -180,11 +176,7 @@ pub(crate) fn tx_run<'a>(
 }
 
 impl ActorSqliteWorker {
-    pub fn builder() -> WorkerConfig {
-        WorkerConfig::default()
-    }
-
-    fn loop_handle(
+    pub(crate) fn loop_handle(
         in_rx: flume::Receiver<RspWrapper<ConnCmdReq, ConnCmdRsp>>,
         mut conn: Connection,
     ) {
@@ -206,92 +198,5 @@ impl ActorSqliteWorker {
                 }
             }
         }
-    }
-}
-
-#[derive(Default)]
-// Stolen from https://github.com/ryanfowler/async-sqlite/blob/main/src/client.rs
-pub struct WorkerConfig {
-    pub(crate) path: PathBuf,
-    flags: OpenFlags,
-    journal_mode: Option<JournalMode>,
-    vfs: Option<String>,
-    pub(crate) pool_size: Option<u8>,
-}
-
-/// The possible sqlite journal modes.
-///
-/// For more information, please see the [sqlite docs](https://www.sqlite.org/pragma.html#pragma_journal_mode).
-#[derive(Clone, Copy, Debug)]
-pub enum JournalMode {
-    Delete,
-    Truncate,
-    Persist,
-    Memory,
-    Wal,
-    Off,
-}
-
-impl JournalMode {
-    /// Returns the appropriate string representation of the journal mode.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Delete => "DELETE",
-            Self::Truncate => "TRUNCATE",
-            Self::Persist => "PERSIST",
-            Self::Memory => "MEMORY",
-            Self::Wal => "WAL",
-            Self::Off => "OFF",
-        }
-    }
-}
-
-impl WorkerConfig {
-    pub fn path<P: AsRef<Path>>(self, path: P) -> Self {
-        Self {
-            path: path.as_ref().to_owned(),
-            ..self
-        }
-    }
-
-    pub fn journal_mode(self, journal_mode: JournalMode) -> Self {
-        Self {
-            journal_mode: Some(journal_mode),
-            ..self
-        }
-    }
-
-    pub fn spawn(self, in_rx: Receiver<RspWrapper<ConnCmdReq, ConnCmdRsp>>) -> Result<()> {
-        let conn = self.build_conn()?;
-
-        thread::spawn(move || {
-            let conn = conn;
-            ActorSqliteWorker::loop_handle(in_rx, conn);
-        });
-
-        Ok(())
-    }
-
-    fn build_conn(mut self) -> Result<Connection> {
-        let path = self.path.clone();
-        let conn = if let Some(vfs) = self.vfs.take() {
-            Connection::open_with_flags_and_vfs(path, self.flags, &vfs)?
-        } else {
-            Connection::open_with_flags(path, self.flags)?
-        };
-
-        if let Some(journal_mode) = self.journal_mode.take() {
-            let val = journal_mode.as_str();
-            let out: String =
-                conn.pragma_update_and_check(None, "journal_mode", val, |row| row.get(0))?;
-            if !out.eq_ignore_ascii_case(val) {
-                return Err(ActorSqlError::RusqliteBuildError(format!(
-                    "unablt to set journal_mode: {:?}",
-                    journal_mode
-                )));
-            }
-        }
-
-        Ok(conn)
     }
 }

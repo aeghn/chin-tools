@@ -2,11 +2,11 @@ pub mod client;
 mod model;
 pub mod pool;
 mod worker;
+pub mod pool_config;
 
 use std::error::Error;
 
 use thiserror::Error;
-pub use worker::WorkerConfig;
 
 #[derive(Error, Debug)]
 pub enum ActorSqlError {
