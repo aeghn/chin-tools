@@ -19,9 +19,9 @@ impl ActorSqliteConnClient {
         orx.await?
     }
 
-    pub async fn execute(&self, sql: String, params: SqlValueVec) -> Result<usize> {
+    pub async fn execute<S: Into<String>>(&self, sql: S, params: SqlValueVec) -> Result<usize> {
         match self
-            .inner(ConnCmdReq::Command(CmdReq::Exec { sql, params }))
+            .inner(ConnCmdReq::Command(CmdReq::Exec { sql: sql.into(), params }))
             .await?
         {
             ConnCmdRsp::Cmd(CmdResult::Exec(count)) => Ok(count),
@@ -31,9 +31,9 @@ impl ActorSqliteConnClient {
         }
     }
 
-    pub async fn query(&self, sql: String, params: SqlValueVec) -> Result<Vec<ActorSqliteRow>> {
+    pub async fn query<S: Into<String>>(&self, sql: S, params: SqlValueVec) -> Result<Vec<ActorSqliteRow>> {
         match self
-            .inner(ConnCmdReq::Command(CmdReq::QueryMap { sql, params }))
+            .inner(ConnCmdReq::Command(CmdReq::QueryMap { sql: sql.into(), params }))
             .await?
         {
             ConnCmdRsp::Cmd(CmdResult::QueryMap(res)) => Ok(res),
@@ -56,7 +56,7 @@ impl ActorSqliteConnClient {
 impl ActorSqliteTxClient {
     async fn inner(&self, command: TxCmdReq) -> Result<TxCmdRsp> {
         let (otx, orx) = oneshot::channel();
-        debug!("begin to send tx cmd {:?}", command);
+        debug!("begin to send tx cmd {command:?}");
         self.inner.send(RspWrapper { command, otx })?;
         orx.await?
     }

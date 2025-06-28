@@ -10,3 +10,5 @@ thiserror = "2.0.12"
 rusqlite.workspace = true
 log.workspace = true
 
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }

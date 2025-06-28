@@ -96,8 +96,7 @@ impl PoolConfig {
                 conn.pragma_update_and_check(None, "journal_mode", val, |row| row.get(0))?;
             if !out.eq_ignore_ascii_case(val) {
                 return Err(ActorSqlError::RusqliteBuildError(format!(
-                    "unable to set journal_mode: {:?} -- {}",
-                    journal_mode, out
+                    "unable to set journal_mode: {journal_mode:?} -- {out}"
                 )));
             }
         }
