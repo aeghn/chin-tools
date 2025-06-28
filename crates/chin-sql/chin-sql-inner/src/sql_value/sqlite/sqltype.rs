@@ -55,8 +55,7 @@ impl TryFrom<i64> for Timestamptz {
             FixedOffset::west_opt(raw_tz * 60)
         };
         let tz = tz.ok_or(ChinSqlError::TransformError(format!(
-            "unable to extract tz from {} -- {}",
-            raw_tz, value
+            "unable to extract tz from {raw_tz} -- {value}"
         )))?;
 
         let raw_time = value / 10000;

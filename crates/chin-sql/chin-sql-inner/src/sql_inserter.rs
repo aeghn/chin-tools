@@ -54,7 +54,7 @@ impl<'a> IntoSqlSeg<'a> for SqlInserter<'a> {
         pht: &mut PlaceHolderType,
     ) -> Result<SqlSeg<'a>, ChinSqlError> {
         if self.fields.is_empty() {
-            return Err(ChinSqlError::BuilderSqlError);
+            return Err(ChinSqlError::BuilderSqlError("insert files is empty".to_owned()));
         }
 
         let mut sql = String::new();

@@ -88,7 +88,7 @@ mod tests {
             })
             .unwrap();
 
-        println!("{}", time);
+        println!("{time}");
         println!(
             "{:?}",
             DateTime::parse_from_str(&time, "%Y-%m-%dT%H:%M:%S%.f %z").unwrap()

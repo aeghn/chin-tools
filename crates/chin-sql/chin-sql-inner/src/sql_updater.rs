@@ -56,7 +56,7 @@ impl<'a> IntoSqlSeg<'a> for SqlUpdater<'a> {
         pht: &mut PlaceHolderType,
     ) -> Result<SqlSeg<'a>, ChinSqlError> {
         if self.setters.is_empty() {
-            return Err(ChinSqlError::BuilderSqlError);
+            return Err(ChinSqlError::BuilderSqlError("update setters is empty".to_owned()));
         }
 
         let mut sb = String::new();

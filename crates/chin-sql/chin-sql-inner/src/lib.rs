@@ -71,8 +71,8 @@ impl<'a> IntoSqlSeg<'a> for String {
 
 #[derive(Error, Debug)]
 pub enum ChinSqlError {
-    #[error("BuilderSqlError")]
-    BuilderSqlError,
+    #[error("BuilderSqlError {0}")]
+    BuilderSqlError(String),
     #[error("TransformError {0}")]
     TransformError(String),
     #[error("FilterBuildError {0}")]

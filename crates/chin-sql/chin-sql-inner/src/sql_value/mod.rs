@@ -7,6 +7,7 @@ mod postgres;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 pub mod time_type;
+pub mod str_type;
 
 use chrono::{DateTime, FixedOffset, Utc};
 use sqlite::sqltype::Timestamptz;

@@ -156,7 +156,7 @@ impl<'a> IntoSqlSeg<'a> for SqlBuilder<'a> {
         pht: &mut PlaceHolderType,
     ) -> Result<SqlSeg<'a>, ChinSqlError> {
         if self.segs.is_empty() {
-            Err(ChinSqlError::BuilderSqlError)?
+            Err(ChinSqlError::BuilderSqlError("segs is empty".into()))?
         }
 
         let mut sb = String::new();
