@@ -51,6 +51,8 @@ pub trait IntoSqlSeg<'a>: Send {
     ) -> Result<SqlSeg<'a>, ChinSqlError>;
 }
 
+
+
 impl<'a> IntoSqlSeg<'a> for SqlSeg<'a> {
     fn into_sql_seg2(self, _: DbType, _: &mut PlaceHolderType) -> Result<SqlSeg<'a>, ChinSqlError> {
         Ok(self)

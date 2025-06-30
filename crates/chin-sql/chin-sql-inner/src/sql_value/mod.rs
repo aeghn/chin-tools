@@ -6,13 +6,18 @@ mod postgres;
 
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
-pub mod time_type;
 pub mod str_type;
+pub mod time_type;
 
+use chin_tools_types::SharedStr;
 use chrono::{DateTime, FixedOffset, Utc};
 use sqlite::sqltype::Timestamptz;
 
-use crate::{ChinSqlError, LogicFieldType, time_type::TID};
+use crate::{
+    ChinSqlError, LogicFieldType,
+    str_type::{Text, Varchar},
+    time_type::TID,
+};
 
 #[derive(Clone, Debug)]
 pub enum SqlValue<'a> {
@@ -122,6 +127,18 @@ impl<'a> From<f64> for SqlValue<'a> {
     }
 }
 
+impl<const LIMIT: usize> From<Varchar<LIMIT>> for SqlValue<'_> {
+    fn from(value: Varchar<LIMIT>) -> Self {
+        Self::Str(Cow::Owned(value.0.to_string()))
+    }
+}
+
+impl From<Text> for SqlValue<'_> {
+    fn from(value: Text) -> Self {
+        Self::Str(Cow::Owned(value.0.to_string()))
+    }
+}
+
 macro_rules! try_from_sql_value {
     ($tp:ty, $rlt:expr, $($variant:ident => $conv:expr),*) => {
         impl<'a> TryFrom<SqlValue<'a>> for $tp {
@@ -188,8 +205,7 @@ macro_rules! try_from_sql_value {
 
 try_from_sql_value!(DateTime<FixedOffset>, LogicFieldType::Timestamptz,
     FixedOffset => |v: DateTime<FixedOffset>| Ok(v),
-    I64 => |v: i64| Timestamptz::try_from(v).map(|tz| *tz),
-    Str => |v: Cow<'a, str>|  DateTime::parse_from_str(&v, "%Y-%m-%dT%H:%M:%S%.9f %z").map_err(|err| ChinSqlError::TransformError(err.to_string()))
+    I64 => |v: i64| Timestamptz::try_from(v).map(|tz| *tz)
 );
 try_from_sql_value!(bool, LogicFieldType::Bool,
     Bool => |v: bool| Ok(v),

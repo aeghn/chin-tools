@@ -4,10 +4,10 @@ use serde::{Deserialize, Deserializer, Serialize, de};
 use crate::ChinSqlError;
 
 #[derive(Clone, Debug)]
-pub struct Varchar<const LIMIT: usize>(SharedStr);
+pub struct Varchar<const LIMIT: usize>(pub(crate) SharedStr);
 
 #[derive(Clone, Debug)]
-pub struct Text(SharedStr);
+pub struct Text(pub(crate) SharedStr);
 
 impl<const LIMIT: usize> Serialize for Varchar<LIMIT> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

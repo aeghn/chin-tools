@@ -12,6 +12,8 @@ pub struct CreateTableSql {
     pub table_name: &'static str,
     pub fields: &'static [CreateTableField],
     pub pkey: &'static [&'static str],
+    pub unikeys: &'static [(&'static str, &'static [&'static str])],
+    pub keys: &'static [(&'static str, &'static [&'static str])],
 }
 
 impl LogicFieldType {
@@ -37,7 +39,7 @@ impl LogicFieldType {
                 LogicFieldType::I32 => "INT4".into(),
                 LogicFieldType::I64 => "INT8".into(),
                 LogicFieldType::F64 => "FLOAT8".into(),
-                LogicFieldType::Varchar(len) => format!("Varchar({})", len),
+                LogicFieldType::Varchar(len) => format!("Varchar({len})"),
                 LogicFieldType::Text => "TEXT".into(),
                 LogicFieldType::Blob => "BLOB".into(),
                 LogicFieldType::Timestamptz => "TIMESTAMPTZ".into(),
@@ -80,6 +82,29 @@ impl<'a> IntoSqlSeg<'a> for &CreateTableSql {
         }
         sr = sr.sov(")");
 
-        sr.into_sql_seg2(db_type, pht)
+        let mut result = vec![];
+        let ct = sr.into_sql_seg2(db_type, pht)?.seg;
+        result.push(ct);
+        for (key, fields) in self.unikeys {
+            result.push(format!(
+                "create unique index {}_{} on {}({})",
+                self.table_name,
+                key,
+                self.table_name,
+                fields.join(",")
+            ));
+        }
+
+        for (key, fields) in self.keys {
+            result.push(format!(
+                "create index {}_{} on {}({})",
+                self.table_name,
+                key,
+                self.table_name,
+                fields.join(",")
+            ));
+        }
+
+        result.join(";").into_sql_seg2(db_type, pht)
     }
 }

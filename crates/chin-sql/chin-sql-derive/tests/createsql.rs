@@ -1,17 +1,20 @@
 use chin_sql::DbType;
 use chin_sql::IntoSqlSeg;
+use chin_sql::str_type::Varchar;
 use chin_sql_derive::GenerateTableSchema;
 use chrono::DateTime;
 use chrono::FixedOffset;
 
 #[derive(GenerateTableSchema)]
-#[allow(dead_code)]
 struct ExampleTable {
     #[gts_primary]
-    #[gts_length = 211]
-    id: String,
+    id: Varchar<211>,
+
+    #[gts_key = "cc:1"]
     create_at: Option<DateTime<FixedOffset>>,
+    
     #[gts_type = "bool"]
+    #[gts_unique]
     create_at2: Option<DateTime<FixedOffset>>,
 }
 
