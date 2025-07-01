@@ -27,6 +27,7 @@ pub(crate) struct FieldInfo {
     pub not_null: bool,
     pub key_map: HashMap<String, (bool, KeyOrder)>, // key_name(lower), unique?, keyorder
     pub pkey: Option<KeyOrder>,
+    pub to_sql_func: Option<String>
 }
 
 pub(crate) fn parse_field_info(field: &Field) -> Result<FieldInfo, syn::Error> {
@@ -58,6 +59,7 @@ pub(crate) fn parse_field_info(field: &Field) -> Result<FieldInfo, syn::Error> {
 
     let pkey = find_pkey(field)?;
     let key_map = find_attr_key(&column_name, field)?;
+    let to_sql_func = find_to_sql_func(field)?;
 
     Ok(FieldInfo {
         column_name,
@@ -65,6 +67,7 @@ pub(crate) fn parse_field_info(field: &Field) -> Result<FieldInfo, syn::Error> {
         not_null,
         key_map,
         pkey,
+        to_sql_func
     })
 }
 
@@ -188,6 +191,25 @@ fn find_pkey(field: &Field) -> Result<Option<KeyOrder>, syn::Error> {
                 }
             } else {
                 return Ok(Some(KeyOrder::Default));
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+fn find_to_sql_func(field: &Field) -> Result<Option<String>, syn::Error> {
+    for attr in &field.attrs {
+        if attr.path().is_ident("gts_tosql") {
+            let meta = &attr.meta;
+            if let syn::Meta::NameValue(name_value) = meta {
+                if let syn::Expr::Lit(lit) = &name_value.value {
+                    if let syn::Lit::Str(s) = &lit.lit {
+                        return Ok(Some(s.value()));
+                    }
+                }
+            } else {
+                return Ok(None);
             }
         }
     }

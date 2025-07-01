@@ -254,7 +254,12 @@ fn to_sql_inserter(fields: &Vec<(FieldInfo, &Field)>) -> TokenStream2 {
         let Some(field_indent) = f.ident.clone() else {
             return syn::Error::new(f.span(), "this field has no ident").to_compile_error();
         };
-        func_stream.extend(quote! { .field(Self::#db_field_ident, self.#field_indent) });
+        if let Some(mp) = fi.to_sql_func.as_ref() {
+            let mp = format_ident!("{}", mp);
+            func_stream.extend(quote! { .field(Self::#db_field_ident, #mp(self.#field_indent)) });
+        } else {
+            func_stream.extend(quote! { .field(Self::#db_field_ident, self.#field_indent) });
+        }
     }
 
     quote! {

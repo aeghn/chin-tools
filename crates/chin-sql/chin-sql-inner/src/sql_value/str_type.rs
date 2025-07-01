@@ -1,3 +1,6 @@
+
+use std::fmt::Display;
+
 use chin_tools_types::SharedStr;
 use serde::{Deserialize, Deserializer, Serialize, de};
 
@@ -113,6 +116,18 @@ impl<const LIMIT: usize> Varchar<LIMIT> {
 impl Text {
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl<const LIMIT: usize> Display for Varchar<LIMIT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl Display for Text {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
