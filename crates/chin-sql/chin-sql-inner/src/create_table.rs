@@ -49,12 +49,8 @@ impl LogicFieldType {
     }
 }
 
-impl<'a> IntoSqlSeg<'a> for &CreateTableSql {
-    fn into_sql_seg2(
-        self,
-        db_type: crate::DbType,
-        pht: &mut crate::PlaceHolderType,
-    ) -> Result<crate::SqlSeg<'a>, crate::ChinSqlError> {
+impl CreateTableSql {
+    pub fn sqls(&self, db_type: crate::DbType) -> Result<Vec<String>, crate::ChinSqlError> {
         let mut sr = SqlBuilder::new()
             .sov("create table if not exists")
             .sov(self.table_name)
@@ -83,11 +79,13 @@ impl<'a> IntoSqlSeg<'a> for &CreateTableSql {
         sr = sr.sov(")");
 
         let mut result = vec![];
-        let ct = sr.into_sql_seg2(db_type, pht)?.seg;
+        let ct = sr
+            .into_sql_seg2(db_type, &mut crate::PlaceHolderType::QustionMark)?
+            .seg;
         result.push(ct);
         for (key, fields) in self.unikeys {
             result.push(format!(
-                "create unique index {}_{} on {}({})",
+                "create unique index if not exists {}_{} on {}({})",
                 self.table_name,
                 key,
                 self.table_name,
@@ -97,7 +95,7 @@ impl<'a> IntoSqlSeg<'a> for &CreateTableSql {
 
         for (key, fields) in self.keys {
             result.push(format!(
-                "create index {}_{} on {}({})",
+                "create index if not exists {}_{} on {}({})",
                 self.table_name,
                 key,
                 self.table_name,
@@ -105,6 +103,6 @@ impl<'a> IntoSqlSeg<'a> for &CreateTableSql {
             ));
         }
 
-        result.join(";").into_sql_seg2(db_type, pht)
+        Ok(result)
     }
 }

@@ -21,7 +21,7 @@ impl PlaceHolderType {
             PlaceHolderType::QustionMark => "?".to_owned(),
             PlaceHolderType::DollarNumber(n) => {
                 *n += 1;
-                format!("${}", n)
+                format!("${n}")
             }
         }
     }

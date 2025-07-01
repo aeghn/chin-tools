@@ -124,7 +124,7 @@ impl NiriCompositor {
     pub fn handle_event(&mut self, event: Event) -> Option<Vec<WLEvent>> {
         let all_windows: &mut HashMap<WLWorkspaceId, WLWindow> = &mut self.windows;
 
-        log::debug!("niri event {:?}", event);
+        log::debug!("niri event {event:?}");
 
         let mapped = match event {
             Event::WorkspacesChanged { workspaces } => {
@@ -147,7 +147,7 @@ impl NiriCompositor {
                 if focused {
                     wss.extend(self.get_old_focused_workspaces());
                 } else {
-                    log::debug!("workspace {} focused: {}", id, focused);
+                    log::debug!("workspace {id} focused: {focused}");
                 }
 
                 if let Some(ws) = self.workspaces.get(&id) {
@@ -157,7 +157,7 @@ impl NiriCompositor {
                     };
                     wss.push(changed);
                 } else {
-                    log::warn!("new focused workspace is not existed {}", id);
+                    log::warn!("new focused workspace is not existed {id}");
                 }
 
                 Some(self.apply_workspaces(wss))

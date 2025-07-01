@@ -47,8 +47,7 @@ impl<'a> SqlBuilder<'a> {
     pub fn read_all(table_name: &str) -> Self {
         Self {
             segs: vec![SqlBuilderSeg::RawOwned(format!(
-                "select * from {} ",
-                table_name
+                "select * from {table_name} "
             ))],
         }
     }

@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset, Utc};
-use postgres_types::{FromSql, ToSql};
+use postgres_types::ToSql;
 
-use crate::{LogicFieldType, SqlValue, str_type::Text};
+use crate::{LogicFieldType, SqlValue};
 
 impl<'a> From<&'a SqlValue<'a>> for &'a (dyn ToSql + Sync + Send) {
     fn from(val: &'a SqlValue<'a>) -> Self {

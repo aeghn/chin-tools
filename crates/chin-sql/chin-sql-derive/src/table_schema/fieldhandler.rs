@@ -107,12 +107,13 @@ fn parse_field_type(
             "bool" => chin_sql::LogicFieldType::Bool,
             "DateTime<FixedOffset>" => chin_sql::LogicFieldType::Timestamptz,
             "DateTime<Utc>" => chin_sql::LogicFieldType::Timestamp,
-            t => {
-                if t.starts_with("Varchar<") && t.ends_with(">") {
-                    let bound = t[9..(t.len() - 1)].parse::<u16>().map_err(|err| {
+            rt => {
+                if rt.starts_with("Varchar<") && rt.ends_with(">") {
+                    let text = &rt[8..(rt.len() - 1)];
+                    let bound = text.parse::<u16>().map_err(|err| {
                         syn::Error::new(
                             field.span(),
-                            format!("{} in `{t}` is illegal, {err}", &t[9..(t.len() - 1)]),
+                            format!("{text} in `{rt}` is illegal, {err}"),
                         )
                     })?;
                     chin_sql::LogicFieldType::Varchar(bound)

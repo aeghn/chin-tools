@@ -96,7 +96,7 @@ pub(crate) fn conn_run(
     req: RspWrapper<ConnCmdReq, ConnCmdRsp>,
 ) -> Result<()> {
     let RspWrapper { command, otx } = req;
-    log::debug!("conn run {:#?}", command);
+    log::debug!("conn run {command:#?}");
 
     match command {
         ConnCmdReq::Transaction => {
@@ -133,11 +133,11 @@ pub(crate) fn tx_run<'a>(
     loop {
         log::debug!("begin to recv on transaction");
         let RspWrapper { command, otx } = rx.recv()?;
-        log::debug!("transaction run {:#?}", command);
+        log::debug!("transaction run {command:#?}");
         match command {
             TxCmdReq::Command(cmd) => match executor.handle(cmd) {
                 Ok(rsp) => {
-                    debug!("actlite: transaction execute done {:?}", rsp);
+                    debug!("actlite: transaction execute done {rsp:?}");
                     otx.send(Ok(TxCmdRsp::Cmd(rsp)))?;
                 }
                 Err(err) => {
@@ -187,13 +187,13 @@ impl ActorSqliteWorker {
                     match result {
                         Ok(_) => {}
                         Err(err) => {
-                            error!("loophandle -> ActorSqlError {}", err);
+                            error!("loophandle -> ActorSqlError {err}");
                             break;
                         }
                     }
                 }
                 Err(err) => {
-                    error!("loophandle -> unable to receive {}", err);
+                    error!("loophandle -> unable to receive {err}");
                     break;
                 }
             }

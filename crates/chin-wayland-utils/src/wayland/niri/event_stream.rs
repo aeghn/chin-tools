@@ -29,7 +29,7 @@ where
         match event {
             Ok(e) => func(e),
             Err(e) => {
-                log::warn!("unable to convert {} to event, {}", line, e)
+                log::warn!("unable to convert {line} to event, {e}")
             }
         }
     });
@@ -44,7 +44,7 @@ mod test {
     #[test]
     fn read_events() {
         handle_event_stream(|e| {
-            log::info!("{:?}", e);
+            log::info!("{e:?}");
         })
         .unwrap();
     }

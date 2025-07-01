@@ -9,7 +9,6 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 pub mod str_type;
 pub mod time_type;
 
-use chin_tools_types::SharedStr;
 use chrono::{DateTime, FixedOffset, Utc};
 use sqlite::sqltype::Timestamptz;
 

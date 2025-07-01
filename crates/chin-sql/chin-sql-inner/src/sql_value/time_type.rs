@@ -172,7 +172,7 @@ mod tests {
         for i in 1..10000 {
             let c = TID::default();
             if c.as_num() % 500 == 0 {
-                print!("{}, ", c);
+                print!("{c}, ");
             }
         }
     }
