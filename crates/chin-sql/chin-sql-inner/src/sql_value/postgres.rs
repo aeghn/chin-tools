@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset, Utc};
-use postgres_types::ToSql;
+use postgres_types::{FromSql, ToSql};
 
-use crate::{LogicFieldType, SqlValue};
+use crate::{LogicFieldType, SqlValue, str_type::Text};
 
 impl<'a> From<&'a SqlValue<'a>> for &'a (dyn ToSql + Sync + Send) {
     fn from(val: &'a SqlValue<'a>) -> Self {
@@ -30,6 +30,43 @@ impl<'a> From<&'a SqlValue<'a>> for &'a (dyn ToSql + Sync + Send) {
                 LogicFieldType::Varchar(_) => &None::<String>,
             },
             SqlValue::NullUnknown => unreachable!(),
+        }
+    }
+}
+
+pub mod from_sql {
+    use postgres_types::FromSql;
+
+    use crate::str_type::{Text, Varchar};
+
+    impl<'a> FromSql<'a> for Text {
+        fn from_sql(
+            ty: &postgres_types::Type,
+            raw: &'a [u8],
+        ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+            let s = String::from_sql(ty, raw)?;
+            Ok(s.into())
+        }
+
+        fn accepts(ty: &postgres_types::Type) -> bool {
+            String::accepts(ty)
+        }
+    }
+
+        impl<'a, const LIMIT: usize> FromSql<'a> for Varchar<LIMIT> {
+        fn from_sql(
+            ty: &postgres_types::Type,
+            raw: &'a [u8],
+        ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+            let s = String::from_sql(ty, raw)?;
+            match s.try_into() {
+                Ok(ok) => Ok(ok),
+                Err(err) => Err(Box::new(err)),
+            }
+        }
+
+        fn accepts(ty: &postgres_types::Type) -> bool {
+            String::accepts(ty)
         }
     }
 }

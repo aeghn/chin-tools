@@ -3,7 +3,7 @@ use std::ops::Deref;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SharedStr(SmolStr);
 
 impl Deref for SharedStr {

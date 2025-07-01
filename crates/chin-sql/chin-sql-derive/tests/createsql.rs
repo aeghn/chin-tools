@@ -10,7 +10,6 @@ struct ExampleTable {
     #[gts_primary]
     id: Varchar<211>,
 
-    #[gts_key = "cc:1"]
     create_at: Option<DateTime<FixedOffset>>,
     
     #[gts_type = "bool"]

@@ -213,9 +213,10 @@ try_from_sql_value!(bool, LogicFieldType::Bool,
 );
 try_from_sql_value!(i64, LogicFieldType::I64, I64 => |v: i64| Ok(v));
 try_from_sql_value!(i32, LogicFieldType::I32, I32 => |v: i32| Ok(v));
-try_from_sql_value!(f64, LogicFieldType::F64, F64 => |v: f64|Ok(v));
+try_from_sql_value!(f64, LogicFieldType::F64, F64 => |v: f64| Ok(v));
 try_from_sql_value!(Cow<'a, str>, LogicFieldType::Text, Str => |v: Cow<'a, str>| Ok(v));
 try_from_sql_value!(String, LogicFieldType::Text,
     Str => |v: Cow<'a, str>| Ok(v.to_string())
 );
-try_from_sql_value!(TID, LogicFieldType::I64, I64 => |v: i64|Ok(v.into()));
+try_from_sql_value!(TID, LogicFieldType::I64, I64 => |v: i64| Ok(v.into()));
+try_from_sql_value!(Text, LogicFieldType::Text, Str => |v: Cow<'a, str>| Ok(v.to_string().into()));
