@@ -111,6 +111,10 @@ impl<const LIMIT: usize> Varchar<LIMIT> {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    pub fn limit<S: AsRef<str>>(s: S) -> Self {
+        Self(s.as_ref()[0..LIMIT].into())
+    }
 }
 
 impl Text {
