@@ -1,10 +1,10 @@
 use chin_sql::DbType;
-use chin_sql::IntoSqlSeg;
 use chin_sql::str_type::Varchar;
 use chin_sql_derive::GenerateTableSchema;
 use chrono::DateTime;
 use chrono::FixedOffset;
 
+#[allow(dead_code)]
 #[derive(GenerateTableSchema)]
 struct ExampleTable {
     #[gts_primary]

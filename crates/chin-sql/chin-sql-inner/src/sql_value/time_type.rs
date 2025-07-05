@@ -169,7 +169,7 @@ mod tests {
     use crate::sql_value::TID;
     #[test]
     fn test_generate() {
-        for i in 1..10000 {
+        for _ in 1..10000 {
             let c = TID::default();
             if c.as_num() % 500 == 0 {
                 print!("{c}, ");
