@@ -16,6 +16,14 @@ pub struct CreateTableSql {
     pub keys: &'static [(&'static str, &'static [&'static str])],
 }
 
+pub struct CreateTableSqlOwned {
+    pub table_name: String,
+    pub fields: Vec<CreateTableField>,
+    pub pkey: Vec<String>,
+    pub unikeys: Vec<(String, Vec<String>)>,
+    pub keys: Vec<(String, Vec<String>)>,
+}
+
 impl LogicFieldType {
     fn to_type(self, db_type: crate::DbType) -> String {
         match db_type {
@@ -50,10 +58,30 @@ impl LogicFieldType {
 }
 
 impl CreateTableSql {
-    pub fn sqls(&self, db_type: crate::DbType) -> Result<Vec<String>, crate::ChinSqlError> {
+    pub fn to_owned_sql(&self) -> CreateTableSqlOwned {
+        CreateTableSqlOwned {
+            table_name: self.table_name.to_string(),
+            fields: self.fields.to_vec(),
+            pkey: self.pkey.iter().map(|e| e.to_string()).collect(),
+            unikeys: self
+                .unikeys
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.iter().map(|e| e.to_string()).collect()))
+                .collect(),
+            keys: self
+                .unikeys
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.iter().map(|e| e.to_string()).collect()))
+                .collect(),
+        }
+    }
+}
+
+impl CreateTableSqlOwned {
+    pub fn sqls(self, db_type: crate::DbType) -> Result<Vec<String>, crate::ChinSqlError> {
         let mut sr = SqlBuilder::new()
             .sov("create table if not exists")
-            .sov(self.table_name)
+            .sov(self.table_name.clone())
             .sov("(");
 
         let columns: Vec<String> = self
