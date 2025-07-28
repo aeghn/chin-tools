@@ -4,6 +4,7 @@ use crate::{DbType, PlaceHolderType, SegOrVal, SqlSeg};
 
 use super::sql_value::SqlValue;
 
+#[derive(Clone, Debug)]
 pub enum WhereConjOp {
     And,
     Or,
@@ -46,6 +47,7 @@ impl FilterCount {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum Wheres<'a> {
     Conj(WhereConjOp, Vec<Wheres<'a>>),
     In(&'a str, Vec<SqlValue<'a>>),

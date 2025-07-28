@@ -84,6 +84,7 @@ fn generate_inner(
     let inserter = to_sql_inserter(fields);
 
     let mut column_structs = TokenStream2::new();
+    let mut all_fields = TokenStream2::new();
     for (fi, _) in fields {
         let column_name = &fi.column_name;
         let not_null = fi.not_null;
@@ -112,6 +113,7 @@ fn generate_inner(
                 not_null: #not_null,
             },
         });
+        all_fields.extend(quote! {#column_name, });
     }
 
     fn all_same_order<T, F>(eles: &[T], f: F) -> i32
@@ -209,6 +211,7 @@ fn generate_inner(
     }
 
     Ok(quote! {
+        #[inline]
         pub fn create_sql() -> &'static chin_sql::CreateTableSql {
             &chin_sql::CreateTableSql {
                 table_name: #table_name,
@@ -217,6 +220,10 @@ fn generate_inner(
                 unikeys: &[ #unikey_schema ],
                 keys: &[ #key_schema ]
             }
+        }
+
+        pub fn all_field_names() -> &'static [&'static str] {
+            &[ #all_fields ]
         }
 
         #inserter
@@ -289,6 +296,8 @@ fn key_func(prefix: &str, fields: &Vec<(&FieldInfo, &Field)>) -> TokenStream2 {
     }
     let reader = format_ident!("{}_reader", prefix);
     let updater = format_ident!("{}_updater", prefix);
+    let where_cond = format_ident!("{}_cond", prefix);
+
     let expanded = quote! {
         pub fn #reader<'a>(#args) -> chin_sql::SqlBuilder<'a> {
             chin_sql::SqlBuilder::read_all(Self::TABLE)
@@ -302,6 +311,12 @@ fn key_func(prefix: &str, fields: &Vec<(&FieldInfo, &Field)>) -> TokenStream2 {
             .r#where(chin_sql::Wheres::and([
                 #wheres
             ]))
+        }
+
+        pub fn #where_cond<'c>(#args) -> chin_sql::Wheres<'c> {
+            chin_sql::Wheres::and([
+                #wheres
+            ])
         }
     };
 

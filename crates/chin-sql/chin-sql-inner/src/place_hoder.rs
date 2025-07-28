@@ -27,6 +27,7 @@ impl PlaceHolderType {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum SegOrVal<'a> {
     Str(Cow<'a, str>),
     Val(SqlValue<'a>),

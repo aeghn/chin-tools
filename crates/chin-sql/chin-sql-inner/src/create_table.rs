@@ -16,6 +16,12 @@ pub struct CreateTableSql {
     pub keys: &'static [(&'static str, &'static [&'static str])],
 }
 
+impl CreateTableSql {
+    pub fn all_fields(&self) -> Vec<&str> {
+        self.fields.iter().map(|e| e.name).collect()
+    }
+}
+
 pub struct CreateTableSqlOwned {
     pub table_name: String,
     pub fields: Vec<CreateTableField>,

@@ -19,7 +19,15 @@ struct ExampleTable {
 
 #[test]
 fn table_generate() {
-    println!("{:#?}", ExampleTable::create_sql().to_owned_sql().sqls(DbType::Postgres));
+    println!(
+        "{:#?}",
+        ExampleTable::create_sql()
+            .to_owned_sql()
+            .sqls(DbType::Postgres)
+    );
+
+    let c = ExampleTable::pkey_cond("1".try_into().unwrap());
+    println!("{c:?}");
 
     assert_eq!("example_table", ExampleTable::TABLE);
 

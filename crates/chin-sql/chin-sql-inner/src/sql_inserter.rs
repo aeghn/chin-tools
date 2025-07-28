@@ -27,6 +27,11 @@ impl<'a> SqlInserter<'a> {
         }
     }
 
+    pub fn table_name(mut self, table: &'static str) -> Self {
+        self.table = table;
+        self
+    }
+
     pub fn field<T: Into<SqlValue<'a>>>(mut self, key: &'static str, value: T) -> Self {
         self.fields.push((key, value.into()));
 
