@@ -89,7 +89,7 @@ impl From<DateTime<Utc>> for TID {
 impl TID {
     #[inline]
     pub fn as_utc(&self) -> DateTime<Utc> {
-        (*self).into()
+        DateTime::<Utc>::from_timestamp_micros((*self).into()).unwrap()
     }
 
     #[inline]
