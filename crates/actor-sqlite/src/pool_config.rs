@@ -84,6 +84,11 @@ impl PoolConfig {
 
     fn build_conn(mut self) -> Result<Connection> {
         let path = self.path.clone();
+        std::fs::create_dir_all(path.parent().ok_or(ActorSqlError::RusqliteBuildError(
+            format!("unable to get parent dir {path:?}"),
+        ))?)
+        .map_err(|err| ActorSqlError::ActorError(err.into()))?;
+
         let conn = if let Some(vfs) = self.vfs.take() {
             Connection::open_with_flags_and_vfs(path, self.flags, &vfs)?
         } else {
