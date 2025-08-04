@@ -13,9 +13,6 @@ serde = { workspace = true }
 chrono = { version = "0.4.35", features = ["serde"] }
 uuid = { version = "1.13.0", features = ["serde", "v4"] }
 
-# Serde Related Crates
-
-strum = { version = "0.26", features = ["derive"] }
 
 # Tokio Related Crates
 futures = { version = "0.3.30", optional = true }
