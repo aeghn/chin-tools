@@ -13,4 +13,4 @@ chin-sql = { path = "../chin-sql-inner", package = "chin-sql-inner" }
 proc-macro2 = "1.0.95"
 
 [dev-dependencies]
-chrono = "*"
+chrono = "0.4.41"
