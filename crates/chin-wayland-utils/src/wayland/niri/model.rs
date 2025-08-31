@@ -71,6 +71,28 @@ impl WLWindowBehaiver for NiriWindow {
     fn get_workspace_id(&self) -> Option<crate::wayland::WLWorkspaceId> {
         self.workspace_id
     }
+
+    fn get_x(&self) -> i64 {
+        self.layout
+            .pos_in_scrolling_layout
+            .as_ref()
+            .map_or(999999, |v| v.0 as i64)
+    }
+
+    fn get_y(&self) -> i64 {
+        self.layout
+            .pos_in_scrolling_layout
+            .as_ref()
+            .map_or(999999, |v| v.1 as i64)
+    }
+
+    fn is_floating(&self) -> bool {
+        self.is_floating
+    }
+
+    fn is_urgent(&self) -> bool {
+        self.is_urgent
+    }
 }
 
 impl WLWorkspaceBehaiver for NiriWorkspace {

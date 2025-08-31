@@ -37,7 +37,11 @@ pub trait WLWindowBehaiver {
     fn get_app_id(&self) -> Option<&str>;
     fn get_id(&self) -> WLWindowId;
     fn is_focused(&self) -> bool;
+    fn is_floating(&self) -> bool;
+    fn is_urgent(&self) -> bool;
     fn get_workspace_id(&self) -> Option<WLWorkspaceId>;
+    fn get_x(&self) -> i64;
+    fn get_y(&self) -> i64;
 }
 
 pub trait WLWorkspaceBehaiver {
