@@ -217,5 +217,5 @@ try_from_sql_value!(Cow<'a, str>, LogicFieldType::Text, Str => |v: Cow<'a, str>|
 try_from_sql_value!(String, LogicFieldType::Text,
     Str => |v: Cow<'a, str>| Ok(v.to_string())
 );
-try_from_sql_value!(TID, LogicFieldType::I64, I64 => |v: i64| Ok(v.into()));
+try_from_sql_value!(TID, LogicFieldType::I64, I64 => |v: i64| v.try_into());
 try_from_sql_value!(Text, LogicFieldType::Text, Str => |v: Cow<'a, str>| Ok(v.to_string().into()));

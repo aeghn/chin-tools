@@ -9,6 +9,8 @@ use std::{
 use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 
+use crate::ChinSqlError;
+
 pub fn current_timestamptz() -> DateTime<FixedOffset> {
     Utc::now().with_timezone(&TimeZone::from_offset(Local::now().offset()))
 }
@@ -71,10 +73,18 @@ impl<'de> Deserialize<'de> for TID {
     }
 }
 
-impl From<i64> for TID {
-    fn from(value: i64) -> Self {
-        Self::check(value);
-        Self(value)
+impl TryFrom<i64> for TID {
+    type Error = ChinSqlError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        if value < 9_007_199_254_740_991 || value == TID_NEVER {
+            Ok(Self(value))
+        } else {
+            Err(ChinSqlError::TransformError(format!(
+                "value {} cannot fit into TID, its too large.",
+                value
+            )))
+        }
     }
 }
 
