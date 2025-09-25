@@ -86,9 +86,9 @@ impl CreateTableSql {
 impl CreateTableSqlOwned {
     pub fn sqls(self, db_type: crate::DbType) -> Result<Vec<String>, crate::ChinSqlError> {
         let mut sr = SqlBuilder::new()
-            .sov("create table if not exists")
-            .sov(self.table_name.clone())
-            .sov("(");
+            .seg("create table if not exists")
+            .seg(self.table_name.clone())
+            .seg("(");
 
         let columns: Vec<String> = self
             .fields
@@ -102,15 +102,15 @@ impl CreateTableSqlOwned {
                 )
             })
             .collect();
-        sr = sr.sov(columns.join(", "));
+        sr = sr.seg(columns.join(", "));
         if !self.pkey.is_empty() {
             sr = sr
-                .sov(", ")
-                .sov("primary key (")
-                .sov(self.pkey.join(","))
-                .sov(")");
+                .seg(", ")
+                .seg("primary key (")
+                .seg(self.pkey.join(","))
+                .seg(")");
         }
-        sr = sr.sov(")");
+        sr = sr.seg(")");
 
         let mut result = vec![];
         let ct = sr

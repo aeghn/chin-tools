@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlSeg};
 
 use super::{place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
@@ -52,8 +54,15 @@ impl<'a> SqlBuilder<'a> {
         }
     }
 
-    pub fn sov<T: Into<SegOrVal<'a>>>(mut self, sov: T) -> Self {
-        self.segs.push(SqlBuilderSeg::SegOrVal(sov.into()));
+    pub fn val<T: Into<SqlValue<'a>>>(mut self, val: T) -> Self {
+        self.segs
+            .push(SqlBuilderSeg::SegOrVal(SegOrVal::Val(val.into())));
+        self
+    }
+
+    pub fn seg<T: Into<Cow<'a, str>>>(mut self, seg: T) -> Self {
+        self.segs
+            .push(SqlBuilderSeg::SegOrVal(SegOrVal::Str(seg.into())));
         self
     }
 
