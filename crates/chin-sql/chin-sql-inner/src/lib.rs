@@ -7,6 +7,7 @@ mod sql_inserter;
 mod sql_updater;
 mod sql_value;
 mod wheres;
+mod tablefield;
 
 pub use create_table::*;
 pub use db_type::*;
@@ -17,6 +18,7 @@ pub use sql_inserter::*;
 pub use sql_updater::*;
 pub use sql_value::*;
 pub use wheres::*;
+pub use tablefield::*;
 
 use thiserror::Error;
 

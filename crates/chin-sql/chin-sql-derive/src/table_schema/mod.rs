@@ -13,7 +13,7 @@ use crate::table_schema::fieldhandler::{FieldInfo, KeyOrder};
 
 pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let name = &input.ident;
+    let struct_name = &input.ident;
 
     let fields = match &input.data {
         Data::Struct(data) => match &data.fields {
@@ -34,14 +34,62 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
         }
     };
 
-    let table_name = camel2snake(name.to_string().as_str());
+    let table_name = camel2snake(struct_name.to_string().as_str());
     let mut constants = TokenStream2::default();
+    let mut table_struct = TokenStream2::default();
+    let table_struct_ident = format_ident!("{}Table", struct_name);
+    let mut table_struct_fields = TokenStream2::default();
+
     for f in fields.into_iter() {
-        let field_name = f.ident.as_ref().unwrap();
-        let fname = format_ident!("{}", field_name.to_string().to_uppercase());
-        let field_name = field_name.to_string();
-        constants.extend(quote! { pub const #fname: &'static str = #field_name; });
+        let field_ident = f.ident.as_ref().unwrap();
+        let field_indent = format_ident!("{}", field_ident.to_string().to_uppercase());
+        let field_name_str = field_ident.to_string();
+        let ty = f.ty.clone();
+        constants.extend(quote! { pub const #field_indent: &'static str = #field_name_str; });
+
+        table_struct_fields.extend(quote! {
+            pub fn #field_ident(&'a self) -> chin_sql::SqlField<'a, #ty> {
+                chin_sql::SqlField::new(#field_name_str).with_opt_table_alias(self.alias.clone())
+            }
+        });
     }
+
+    table_struct.extend(quote! {
+        pub struct #table_struct_ident<'a> {
+            pub alias: Option<&'a str>
+        }
+        impl<'a> #table_struct_ident<'a> {
+            pub fn new(alias: &'a str) -> Self {
+                Self {
+                    alias: Some(alias.into())
+                }
+            }
+
+            pub fn ori() -> Self {
+                Self {
+                    alias: None
+                }
+            }
+
+            pub fn twn(&self) -> String {
+                match self.alias.as_ref() {
+                    Some(alias) => {
+                        format!("{}.{}", alias, #table_name)
+                    },
+                    None => {
+                        format!("{}", #table_name)
+                    },
+                }
+            }
+
+            #[inline]
+            pub fn table(&self) -> &'static str {
+                #table_name
+            }
+
+            #table_struct_fields
+        }
+    });
 
     let functions = match generate_functions(&table_name, &fields.iter().collect()) {
         Ok(ok) => ok,
@@ -53,12 +101,15 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
-        impl #name {
+        #table_struct
+
+        impl #struct_name {
             pub const TABLE: &'static str = #table_name;
             #constants
 
             #functions
         }
+
     };
 
     TokenStream::from(expanded)

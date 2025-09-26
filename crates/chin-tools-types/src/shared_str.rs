@@ -1,4 +1,8 @@
-use std::ops::Deref;
+use std::{
+    borrow::Cow,
+    fmt::{Display, Write},
+    ops::Deref,
+};
 
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
@@ -41,5 +45,17 @@ impl SharedStr {
 impl AsRef<[u8]> for SharedStr {
     fn as_ref(&self) -> &[u8] {
         self.as_bytes()
+    }
+}
+
+impl<'a> Into<Cow<'a, str>> for &'a SharedStr {
+    fn into(self) -> Cow<'a, str> {
+        Cow::Borrowed(&self)
+    }
+}
+
+impl Display for SharedStr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
     }
 }

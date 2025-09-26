@@ -147,10 +147,6 @@ impl<'a> Wheres<'a> {
         Self::None
     }
 
-    pub fn of<T: Into<SegOrVal<'a>>>(sovs: Vec<T>) -> Self {
-        Self::SOV(sovs.into_iter().map(|e| e.into()).collect())
-    }
-
     pub fn build(self, db_type: DbType, value_type: &mut PlaceHolderType) -> Option<SqlSeg<'a>> {
         let mut seg = String::new();
         let mut values: Vec<SqlValue<'a>> = Vec::new();
