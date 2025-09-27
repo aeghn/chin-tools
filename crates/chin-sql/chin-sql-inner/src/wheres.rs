@@ -50,38 +50,38 @@ impl FilterCount {
 #[derive(Clone, Debug)]
 pub enum Wheres<'a> {
     Conj(WhereConjOp, Vec<Wheres<'a>>),
-    In(&'a str, Vec<SqlValue<'a>>),
+    In(Cow<'a, str>, Vec<SqlValue<'a>>),
     Not(Box<Wheres<'a>>),
     Compare {
-        key: &'a str,
-        operator: &'a str,
+        key: Cow<'a, str>,
+        operator: Cow<'a, str>,
         value: SqlValue<'a>,
     }, // key, operator, value
     Raw(Cow<'a, str>),
     SOV(Vec<SegOrVal<'a>>),
     IIike {
-        key: &'a str,
+        key: Cow<'a, str>,
         value: String,
     },
     None,
 }
 
 impl<'a> Wheres<'a> {
-    pub fn equal<'b: 'a, T: Into<SqlValue<'a>>>(key: &'b str, v: T) -> Self {
+    pub fn equal<T: Into<SqlValue<'a>>, S: Into<Cow<'a, str>>>(key: S, v: T) -> Self {
         Self::Compare {
-            key,
-            operator: "=",
+            key: key.into(),
+            operator: "=".into(),
             value: v.into(),
         }
     }
 
-    pub fn ilike<T: AsRef<str>>(key: &'a str, v: T, exact: ILikeType) -> Self {
+    pub fn ilike<T: AsRef<str>, S: Into<Cow<'a, str>>>(key: S, v: T, exact: ILikeType) -> Self {
         let s = v.as_ref();
         if s.is_empty() {
             return Wheres::None;
         }
         Self::IIike {
-            key,
+            key: key.into(),
             value: match exact {
                 ILikeType::Original => v.as_ref().into(),
                 ILikeType::RightFuzzy => format!("{}%", v.as_ref()),
@@ -90,24 +90,37 @@ impl<'a> Wheres<'a> {
             },
         }
     }
-    pub fn is_null(key: &'a str) -> Self {
-        Self::compare_str(key, "is", "null")
+    pub fn is_null<S: Into<Cow<'a, str>>>(key: S) -> Self {
+        Self::compare_str(key.into(), "is", "null")
     }
 
-    pub fn is_not_null(key: &'a str) -> Self {
-        Self::compare_str(key, "is not", "null")
+    pub fn is_not_null<S: Into<Cow<'a, str>>>(key: S) -> Self {
+        Self::compare_str(key.into(), "is not", "null")
     }
 
-    pub fn compare<'b: 'a, T: Into<SqlValue<'a>>>(key: &'b str, operator: &'b str, v: T) -> Self {
+    pub fn compare<SK: Into<Cow<'a, str>>, SO: Into<Cow<'a, str>>, T: Into<SqlValue<'a>>>(
+        key: SK,
+        operator: SO,
+        v: T,
+    ) -> Self {
         Self::Compare {
-            key,
-            operator,
+            key: key.into(),
+            operator: operator.into(),
             value: v.into(),
         }
     }
 
-    pub fn compare_str<T: AsRef<str>>(key: &'a str, operator: &'a str, v: T) -> Self {
-        Self::Raw(Cow::Owned(format!("{} {} {}", key, operator, v.as_ref())))
+    pub fn compare_str<T: AsRef<str>, S: Into<Cow<'a, str>>>(
+        key: S,
+        operator: &'a str,
+        v: T,
+    ) -> Self {
+        Self::Raw(Cow::Owned(format!(
+            "{} {} {}",
+            key.into(),
+            operator,
+            v.as_ref()
+        )))
     }
 
     pub fn if_some<T, F>(original: Option<T>, map: F) -> Self
@@ -139,8 +152,8 @@ impl<'a> Wheres<'a> {
         map(original)
     }
 
-    pub fn r#in<T: Into<SqlValue<'a>>>(key: &'a str, values: Vec<T>) -> Self {
-        Self::In(key, values.into_iter().map(|e| e.into()).collect())
+    pub fn r#in<T: Into<SqlValue<'a>>, S: Into<Cow<'a, str>>>(key: S, values: Vec<T>) -> Self {
+        Self::In(key.into(), values.into_iter().map(|e| e.into()).collect())
     }
 
     pub fn none() -> Self {
@@ -174,7 +187,7 @@ impl<'a> Wheres<'a> {
             }
             Wheres::In(key, fs) => {
                 log::info!("print: {key:?}, {fs:?}");
-                seg.push_str(key);
+                seg.push_str(key.as_ref());
                 seg.push_str(" in (");
                 let vs = fs
                     .iter()
@@ -204,9 +217,9 @@ impl<'a> Wheres<'a> {
                 operator,
                 value,
             } => {
-                seg.push_str(key);
+                seg.push_str(key.as_ref());
                 seg.push(' ');
-                seg.push_str(operator);
+                seg.push_str(operator.as_ref());
                 seg.push(' ');
 
                 seg.push_str(&value_type.next_ph());
@@ -237,12 +250,12 @@ impl<'a> Wheres<'a> {
                 let ilike = match db_type {
                     DbType::Sqlite => Self::Compare {
                         key,
-                        operator: "like",
+                        operator: "like".into(),
                         value: value.into(),
                     },
                     DbType::Postgres => Self::Compare {
                         key,
-                        operator: "ilike",
+                        operator: "ilike".into(),
                         value: value.into(),
                     },
                 };

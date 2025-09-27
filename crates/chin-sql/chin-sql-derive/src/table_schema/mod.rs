@@ -70,11 +70,11 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
                     alias: None
                 }
             }
-
-            pub fn twn(&self) -> String {
+            // name with alias
+            pub fn nwa(&self) -> String {
                 match self.alias.as_ref() {
                     Some(alias) => {
-                        format!("{}.{}", alias, #table_name)
+                        format!("{} {}", #table_name, alias)
                     },
                     None => {
                         format!("{}", #table_name)

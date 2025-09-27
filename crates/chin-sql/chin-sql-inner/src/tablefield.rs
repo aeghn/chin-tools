@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{borrow::Cow, marker::PhantomData};
 
 use chin_tools_types::SharedStr;
 
@@ -42,63 +42,50 @@ impl<'a, T> SqlField<'a, T> {
         }
     }
 
-    pub fn twn(&self) -> String {
+    pub fn twn(&self) -> Cow<'a, str> {
         match self.table_alias {
-            Some(alias) => {
-                format!("{}.{}", alias, self.field_name)
-            },
-            None => {
-                format!("{}", self.field_name)
-            },
+            Some(alias) => format!("{}.{}", alias, self.field_name).into(),
+            None => self.field_name.into(),
         }
-    }
-
-    fn identifier(&self) -> &str {
-        /* if let Some(ta) = self.table_alias {
-            format!("{}.{}", ta, self.field_name)
-        } else {
-            self.field_name.to_owned()
-        } */
-        todo!()
     }
 }
 
-impl<'a, T> SqlField<'a, T>
+impl<'a, T: 'a> SqlField<'a, T>
 where
     T: Into<SqlValue<'a>>,
 {
-    pub fn v_eq<V: Into<T>>(&'a self, v: V) -> Wheres<'a> {
-        Wheres::equal(&self.identifier(), v.into())
+    pub fn v_eq<V: Into<T>>(&self, v: V) -> Wheres<'a> {
+        Wheres::equal(self.twn(), v.into())
     }
 
-    pub fn v_in<V: Into<T>>(&'a self, vs: Vec<V>) -> Wheres<'a> {
+    pub fn v_in<V: Into<T>>(&self, vs: Vec<V>) -> Wheres<'a> {
         Wheres::r#in(
-            &self.identifier(),
+            self.twn(),
             vs.into_iter().map(|v| v.into()).collect(),
         )
     }
 }
 
 impl<'a> SqlField<'a, Text> {
-    pub fn v_ilike<V: AsRef<str>>(&'a self, v: V, exact: ILikeType) -> Wheres<'a> {
-        Wheres::ilike(&self.identifier(), v.as_ref(), exact)
+    pub fn v_ilike<V: AsRef<str>>(&self, v: V, exact: ILikeType) -> Wheres<'a> {
+        Wheres::ilike(self.twn(), v.as_ref(), exact)
     }
 }
 
 impl<'a> SqlField<'a, i64> {
-    pub fn v_gt<V: Into<i64>>(&'a self, v: V) -> Wheres<'a> {
-        Wheres::compare(&self.identifier(), ">", v.into())
+    pub fn v_gt<V: Into<i64>>(&self, v: V) -> Wheres<'a> {
+        Wheres::compare(self.twn(), ">", v.into())
     }
 
-    pub fn v_lt<V: Into<i64>>(&'a self, v: V) -> Wheres<'a> {
-        Wheres::compare(&self.identifier(), "<", v.into())
+    pub fn v_lt<V: Into<i64>>(&self, v: V) -> Wheres<'a> {
+        Wheres::compare(self.twn(), "<", v.into())
     }
 
-    pub fn v_ge<V: Into<i64>>(&'a self, v: V) -> Wheres<'a> {
-        Wheres::compare(&self.identifier(), ">=", v.into())
+    pub fn v_ge<V: Into<i64>>(&self, v: V) -> Wheres<'a> {
+        Wheres::compare(self.twn(), ">=", v.into())
     }
 
-    pub fn v_le<V: Into<i64>>(&'a self, v: V) -> Wheres<'a> {
-        Wheres::compare(&self.identifier(), "<=", v.into())
+    pub fn v_le<V: Into<i64>>(&self, v: V) -> Wheres<'a> {
+        Wheres::compare(self.twn(), "<=", v.into())
     }
 }
