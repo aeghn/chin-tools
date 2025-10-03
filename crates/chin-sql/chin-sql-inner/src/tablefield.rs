@@ -1,21 +1,24 @@
 use std::{borrow::Cow, marker::PhantomData};
 
-use chin_tools_types::SharedStr;
+use crate::{str_type::Text, ILikeType, SqlBuilder, SqlValue, Wheres};
 
-use crate::{ILikeType, SqlValue, Wheres, str_type::Text};
+pub trait SqlTable<'a> {
+    fn table_expr(&self) -> SqlBuilder<'a>;
+    fn alias(&self) -> &'a str;
+}
 
 pub struct SqlField<'a, T> {
     pub alias: Option<&'a str>,
-    pub table_alias: Option<&'a str>,
-    pub field_name: &'a str,
+    pub table_alias: &'a str,
+    pub field_name: &'static str,
     value_type: PhantomData<T>,
 }
 
 impl<'a, T> SqlField<'a, T> {
-    pub fn new(field_name: &'a str) -> Self {
+    pub fn new(table_alias: &'a str, field_name: &'static str) -> Self {
         Self {
             alias: None,
-            table_alias: None,
+            table_alias: table_alias,
             field_name: field_name,
             value_type: PhantomData::default(),
         }
@@ -30,23 +33,13 @@ impl<'a, T> SqlField<'a, T> {
 
     pub fn with_table_alias(self, alias: &'a str) -> Self {
         Self {
-            table_alias: Some(alias),
-            ..self
-        }
-    }
-
-    pub fn with_opt_table_alias(self, alias: Option<&'a str>) -> Self {
-        Self {
             table_alias: alias,
             ..self
         }
     }
 
     pub fn twn(&self) -> Cow<'a, str> {
-        match self.table_alias {
-            Some(alias) => format!("{}.{}", alias, self.field_name).into(),
-            None => self.field_name.into(),
-        }
+        format!("{}.{}", self.table_alias, self.field_name).into()
     }
 }
 
@@ -59,10 +52,7 @@ where
     }
 
     pub fn v_in<V: Into<T>>(&self, vs: Vec<V>) -> Wheres<'a> {
-        Wheres::r#in(
-            self.twn(),
-            vs.into_iter().map(|v| v.into()).collect(),
-        )
+        Wheres::r#in(self.twn(), vs.into_iter().map(|v| v.into()).collect())
     }
 }
 

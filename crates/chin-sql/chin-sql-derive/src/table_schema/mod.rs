@@ -48,38 +48,38 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
         constants.extend(quote! { pub const #field_indent: &'static str = #field_name_str; });
 
         table_struct_fields.extend(quote! {
+            #[inline]
             pub fn #field_ident(&'a self) -> chin_sql::SqlField<'a, #ty> {
-                chin_sql::SqlField::new(#field_name_str).with_opt_table_alias(self.alias.clone())
+                chin_sql::SqlField::new(self.alias, #field_name_str)
             }
         });
     }
 
     table_struct.extend(quote! {
         pub struct #table_struct_ident<'a> {
-            pub alias: Option<&'a str>
+            pub alias: &'a str
         }
+
+        impl<'a> chin_sql::SqlTable<'a> for #table_struct_ident<'a> {
+                fn table_expr(&self) -> chin_sql::SqlBuilder<'a> {
+                    #table_name.into()
+                }
+
+                fn alias(&self) -> &'a str {
+                    self.alias
+                }
+        }
+
         impl<'a> #table_struct_ident<'a> {
             pub fn new(alias: &'a str) -> Self {
                 Self {
-                    alias: Some(alias.into())
+                    alias: alias.into()
                 }
             }
 
-            pub fn ori() -> Self {
-                Self {
-                    alias: None
-                }
-            }
             // name with alias
             pub fn nwa(&self) -> String {
-                match self.alias.as_ref() {
-                    Some(alias) => {
-                        format!("{} {}", #table_name, alias)
-                    },
-                    None => {
-                        format!("{}", #table_name)
-                    },
-                }
+                        format!("{} {}", #table_name, self.alias)
             }
 
             #[inline]

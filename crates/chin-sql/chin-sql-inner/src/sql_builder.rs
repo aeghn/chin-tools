@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlSeg};
+use crate::{ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlField, SqlSeg, SqlTable};
 
 use super::{place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
@@ -108,8 +108,8 @@ impl<'a> SqlBuilder<'a> {
         self
     }
 
-    pub fn merge(mut self, other: SqlBuilder<'a>) -> Self {
-        let SqlBuilder { segs } = other;
+    pub fn merge<SB: Into<SqlBuilder<'a>>>(mut self, other: SB) -> Self {
+        let SqlBuilder { segs } = other.into();
         self.segs.extend(segs);
         self
     }
@@ -226,5 +226,132 @@ impl<'a> IntoSqlSeg<'a> for SqlBuilder<'a> {
         }
 
         Ok(SqlSeg::of(sb, values))
+    }
+}
+
+impl<'a> From<&'a str> for SqlBuilder<'a> {
+    fn from(value: &'a str) -> Self {
+        Self {
+            segs: vec![SqlBuilderSeg::SegOrVal(value.into())],
+        }
+    }
+}
+
+pub enum JoinType {
+    LeftJoin,
+    InnerJoin,
+    RightJoin,
+}
+
+pub struct JoinCond<'a> {
+    lt: &'a str,
+    l_field: &'a str,
+    rt: &'a str,
+    r_field: &'a str,
+}
+
+impl<'a, T> From<(SqlField<'a, T>, SqlField<'a, T>)> for JoinCond<'a> {
+    fn from(value: (SqlField<'a, T>, SqlField<'a, T>)) -> Self {
+        JoinCond {
+            lt: value.0.table_alias,
+            l_field: value.0.field_name,
+            rt: value.1.table_alias,
+            r_field: value.1.field_name,
+        }
+    }
+}
+
+enum JoinTable<'a> {
+    FirstTable {
+        table: SqlBuilder<'a>,
+        alias: &'a str,
+    },
+    JoinTable {
+        join_type: JoinType,
+        table: SqlBuilder<'a>,
+        alias: &'a str,
+        conds: Vec<JoinCond<'a>>,
+    },
+}
+
+pub struct Join<'a> {
+    tables: Vec<JoinTable<'a>>,
+}
+
+impl<'a> Join<'a> {
+    pub fn new() -> Self {
+        Self { tables: vec![] }
+    }
+    pub fn first(table: &'a dyn SqlTable<'a>) -> Self {
+        Self {
+            tables: vec![JoinTable::FirstTable {
+                table: table.table_expr(),
+                alias: table.alias(),
+            }],
+        }
+    }
+
+    pub fn left_join<CS: Into<Vec<JoinCond<'a>>>>(
+        mut self,
+        table: &'a dyn SqlTable<'a>,
+        conds: CS,
+    ) -> Self {
+        let jt = JoinTable::JoinTable {
+            join_type: JoinType::LeftJoin,
+            table: table.table_expr(),
+            alias: table.alias(),
+            conds: conds.into(),
+        };
+
+        self.tables.push(jt);
+        self
+    }
+}
+
+impl<'a> From<Join<'a>> for SqlBuilder<'a> {
+    fn from(value: Join<'a>) -> Self {
+        let mut sql_builder = SqlBuilder::new();
+        for table in value.tables {
+            match table {
+                JoinTable::FirstTable { table, alias } => {
+                    sql_builder = sql_builder.merge(table).seg(alias);
+                }
+                JoinTable::JoinTable {
+                    join_type,
+                    table,
+                    alias,
+                    conds,
+                } => {
+                    match join_type {
+                        JoinType::LeftJoin => {
+                            sql_builder = sql_builder.seg("left join");
+                        }
+                        JoinType::InnerJoin => {
+                            sql_builder = sql_builder.seg("inner join");
+                        }
+                        JoinType::RightJoin => {
+                            sql_builder = sql_builder.seg("right join");
+                        }
+                    };
+                    sql_builder = sql_builder.merge(table).seg(alias).seg("on");
+                    let cond_len = conds.len();
+                    for (i, join_cond) in conds.into_iter().enumerate() {
+                        sql_builder = sql_builder
+                            .seg(join_cond.lt)
+                            .seg(".")
+                            .seg(join_cond.l_field)
+                            .seg("=")
+                            .seg(join_cond.rt)
+                            .seg(".")
+                            .seg(join_cond.r_field);
+                        if i < cond_len - 1 {
+                            sql_builder = sql_builder.seg("and");
+                        }
+                    }
+                }
+            }
+        }
+
+        sql_builder
     }
 }
