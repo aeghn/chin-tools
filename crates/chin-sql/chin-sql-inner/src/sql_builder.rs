@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use chin_tools_types::SharedStr;
+
 use crate::{ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlField, SqlSeg, SqlTable};
 
 use super::{place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
@@ -108,6 +110,18 @@ impl<'a> SqlBuilder<'a> {
         self
     }
 
+    pub fn order_by<'b, T: Into<Vec<OrderBy<'b>>>>(self, orders: T) -> Self {
+        let orders: Vec<String> = orders
+            .into()
+            .iter()
+            .map(|e| match e {
+                OrderBy::Asc(shared_str) => format!("{} asc", shared_str),
+                OrderBy::Desc(shared_str) => format!("{} desc", shared_str),
+            })
+            .collect();
+        self.seg(orders.join(", "))
+    }
+
     pub fn merge<SB: Into<SqlBuilder<'a>>>(mut self, other: SB) -> Self {
         let SqlBuilder { segs } = other.into();
         self.segs.extend(segs);
@@ -118,6 +132,11 @@ impl<'a> SqlBuilder<'a> {
 pub struct LimitOffset {
     limit: usize,
     offset: Option<usize>,
+}
+
+pub enum OrderBy<'a> {
+    Asc(Cow<'a, str>),
+    Desc(Cow<'a, str>),
 }
 
 impl LimitOffset {
