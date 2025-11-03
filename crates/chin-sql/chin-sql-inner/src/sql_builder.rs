@@ -81,6 +81,13 @@ impl<'a> SqlBuilder<'a> {
         }
     }
 
+    pub fn transform<F>(self, trans: F) -> Self
+    where
+        F: FnOnce(Self) -> Self,
+    {
+        trans(self)
+    }
+
     pub fn r#where<T: Into<Wheres<'a>>>(mut self, wheres: T) -> Self {
         self.segs.push(SqlBuilderSeg::Where(wheres.into()));
         self
@@ -333,6 +340,7 @@ impl<'a> Joins<'a> {
 impl<'a> From<Joins<'a>> for SqlBuilder<'a> {
     fn from(value: Joins<'a>) -> Self {
         let mut sql_builder = SqlBuilder::new();
+        sql_builder = sql_builder.merge(value.base);
         for table in value.joins {
             let JoinTable {
                 join_type,
@@ -536,6 +544,36 @@ impl<'a> From<SqlReader<'a>> for SqlBuilder<'a> {
             .seg("from")
             .merge(value.froms)
             .r#where(value.wheres)
+            .transform(|this| match value.group_by {
+                GroupBy::Plain(cows) => this.seg("order by").seg(cows.join(", ")),
+                GroupBy::None => this,
+            })
+            .transform(|this| match value.having {
+                Having::Custom(cow) => this.seg("having").seg(cow),
+                Having::None => this,
+            })
+            .transform(|this| match value.order_by {
+                Some(order_by) => {
+                    let c: Vec<String> = order_by
+                        .iter()
+                        .filter_map(|ob| match ob {
+                            OrderBy::Asc(cow) => Some(format!("{} asc", cow)),
+                            OrderBy::Desc(cow) => Some(format!("{} desc", cow)),
+                            OrderBy::None => None,
+                        })
+                        .collect();
+                    if c.len() > 0 {
+                        this.seg("order by").seg(c.join(", "))
+                    } else {
+                        this
+                    }
+                }
+                None => this,
+            })
+            .transform(|this| match value.limit {
+                Some(lo) => this.limit_offset(lo),
+                None => this,
+            })
     }
 }
 
