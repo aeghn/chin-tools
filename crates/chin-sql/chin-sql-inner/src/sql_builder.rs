@@ -401,7 +401,7 @@ pub enum Froms<'a> {
     },
     Joins(Box<Joins<'a>>),
     Union {
-        table: Vec<Froms<'a>>,
+        table: Vec<SqlReader<'a>>,
         alias: &'a str,
     },
 }
