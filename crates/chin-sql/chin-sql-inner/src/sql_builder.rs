@@ -1,8 +1,10 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Deref};
 
 use chin_tools_types::SharedStr;
 
-use crate::{ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlField, SqlSeg, SqlTable};
+use crate::{
+    ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlField, SqlSeg, SqlTable, SqlTypedField,
+};
 
 use super::{place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
@@ -114,9 +116,11 @@ impl<'a> SqlBuilder<'a> {
         let orders: Vec<String> = orders
             .into()
             .iter()
+            .filter(|e| !matches!(e, OrderBy::None))
             .map(|e| match e {
                 OrderBy::Asc(shared_str) => format!("{} asc", shared_str),
                 OrderBy::Desc(shared_str) => format!("{} desc", shared_str),
+                OrderBy::None => unreachable!(),
             })
             .collect();
         self.seg(orders.join(", "))
@@ -129,14 +133,16 @@ impl<'a> SqlBuilder<'a> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct LimitOffset {
-    limit: usize,
-    offset: Option<usize>,
+    pub limit: usize,
+    pub offset: Option<usize>,
 }
 
 pub enum OrderBy<'a> {
     Asc(Cow<'a, str>),
     Desc(Cow<'a, str>),
+    None,
 }
 
 impl LimitOffset {
@@ -263,114 +269,276 @@ pub enum JoinType {
 }
 
 pub struct JoinCond<'a> {
-    lt: &'a str,
+    l_table: &'a str,
     l_field: &'a str,
-    rt: &'a str,
+    r_table: &'a str,
     r_field: &'a str,
 }
 
-impl<'a, T> From<(SqlField<'a, T>, SqlField<'a, T>)> for JoinCond<'a> {
-    fn from(value: (SqlField<'a, T>, SqlField<'a, T>)) -> Self {
+impl<'a, T> From<(SqlTypedField<'a, T>, SqlTypedField<'a, T>)> for JoinCond<'a> {
+    fn from(value: (SqlTypedField<'a, T>, SqlTypedField<'a, T>)) -> Self {
         JoinCond {
-            lt: value.0.table_alias,
+            l_table: value.0.table_alias,
             l_field: value.0.field_name,
-            rt: value.1.table_alias,
+            r_table: value.1.table_alias,
             r_field: value.1.field_name,
         }
     }
 }
-
-enum JoinTable<'a> {
-    FirstTable {
-        table: SqlBuilder<'a>,
-        alias: &'a str,
-    },
-    JoinTable {
-        join_type: JoinType,
-        table: SqlBuilder<'a>,
-        alias: &'a str,
-        conds: Vec<JoinCond<'a>>,
-    },
+pub struct JoinTable<'a> {
+    pub join_type: JoinType,
+    pub table: Froms<'a>,
+    pub conds: Vec<JoinCond<'a>>,
 }
 
-pub struct Join<'a> {
-    tables: Vec<JoinTable<'a>>,
+pub struct Joins<'a> {
+    pub base: Froms<'a>,
+    pub joins: Vec<JoinTable<'a>>,
 }
 
-impl<'a> Join<'a> {
-    pub fn new() -> Self {
-        Self { tables: vec![] }
-    }
-    pub fn first(table: &'a dyn SqlTable<'a>) -> Self {
+impl<'a> Joins<'a> {
+    pub fn new(base: Froms<'a>) -> Self {
         Self {
-            tables: vec![JoinTable::FirstTable {
-                table: table.table_expr(),
-                alias: table.alias(),
-            }],
+            base,
+            joins: vec![],
         }
     }
 
-    pub fn left_join<CS: Into<Vec<JoinCond<'a>>>>(
-        mut self,
-        table: &'a dyn SqlTable<'a>,
-        conds: CS,
-    ) -> Self {
-        let jt = JoinTable::JoinTable {
-            join_type: JoinType::LeftJoin,
-            table: table.table_expr(),
-            alias: table.alias(),
-            conds: conds.into(),
-        };
-
-        self.tables.push(jt);
+    pub fn join<T: Into<Option<JoinTable<'a>>>>(mut self, table: T) -> Self {
+        let jt = table.into();
+        match jt {
+            Some(jt) => {
+                self.joins.push(jt);
+            }
+            None => {}
+        }
         self
+    }
+
+    pub fn join_if<T: Into<Option<JoinTable<'a>>>>(self, flag: bool, table: T) -> Self {
+        if flag { self.join(table.into()) } else { self }
+    }
+
+    pub fn join_some<V, F>(self, v: Option<V>, map: F) -> Self
+    where
+        F: Fn(V) -> JoinTable<'a>,
+    {
+        match v {
+            Some(v) => self.join(map(v)),
+            None => self,
+        }
     }
 }
 
-impl<'a> From<Join<'a>> for SqlBuilder<'a> {
-    fn from(value: Join<'a>) -> Self {
+impl<'a> From<Joins<'a>> for SqlBuilder<'a> {
+    fn from(value: Joins<'a>) -> Self {
         let mut sql_builder = SqlBuilder::new();
-        for table in value.tables {
-            match table {
-                JoinTable::FirstTable { table, alias } => {
-                    sql_builder = sql_builder.merge(table).seg(alias);
+        for table in value.joins {
+            let JoinTable {
+                join_type,
+                table,
+                conds,
+            } = table;
+
+            match join_type {
+                JoinType::LeftJoin => {
+                    sql_builder = sql_builder.seg("left join");
                 }
-                JoinTable::JoinTable {
-                    join_type,
-                    table,
-                    alias,
-                    conds,
-                } => {
-                    match join_type {
-                        JoinType::LeftJoin => {
-                            sql_builder = sql_builder.seg("left join");
-                        }
-                        JoinType::InnerJoin => {
-                            sql_builder = sql_builder.seg("inner join");
-                        }
-                        JoinType::RightJoin => {
-                            sql_builder = sql_builder.seg("right join");
-                        }
-                    };
-                    sql_builder = sql_builder.merge(table).seg(alias).seg("on");
-                    let cond_len = conds.len();
-                    for (i, join_cond) in conds.into_iter().enumerate() {
-                        sql_builder = sql_builder
-                            .seg(join_cond.lt)
-                            .seg(".")
-                            .seg(join_cond.l_field)
-                            .seg("=")
-                            .seg(join_cond.rt)
-                            .seg(".")
-                            .seg(join_cond.r_field);
-                        if i < cond_len - 1 {
-                            sql_builder = sql_builder.seg("and");
-                        }
-                    }
+                JoinType::InnerJoin => {
+                    sql_builder = sql_builder.seg("inner join");
+                }
+                JoinType::RightJoin => {
+                    sql_builder = sql_builder.seg("right join");
+                }
+            };
+            sql_builder = sql_builder.merge(table).seg("on");
+            let cond_len = conds.len();
+            for (i, join_cond) in conds.into_iter().enumerate() {
+                sql_builder = sql_builder
+                    .seg(join_cond.l_table)
+                    .seg(".")
+                    .seg(join_cond.l_field)
+                    .seg("=")
+                    .seg(join_cond.r_table)
+                    .seg(".")
+                    .seg(join_cond.r_field);
+                if i < cond_len - 1 {
+                    sql_builder = sql_builder.seg("and");
                 }
             }
         }
 
         sql_builder
     }
+}
+
+pub trait Fields<'a> {
+    fn to_select_fields(&self) -> String;
+}
+
+impl<'a> Fields<'a> for String {
+    fn to_select_fields(&self) -> String {
+        self.to_string()
+    }
+}
+
+pub enum Froms<'a> {
+    Table {
+        table_name: &'a str,
+        alias: &'a str,
+    },
+    SubQuery {
+        table: Box<SqlReader<'a>>,
+        alias: &'a str,
+    },
+    Joins(Box<Joins<'a>>),
+    Union {
+        table: Vec<Froms<'a>>,
+        alias: &'a str,
+    },
+}
+
+impl<'a> From<Joins<'a>> for Froms<'a> {
+    fn from(value: Joins<'a>) -> Self {
+        Self::Joins(Box::new(value))
+    }
+}
+
+impl<'a> From<Froms<'a>> for SqlBuilder<'a> {
+    fn from(value: Froms<'a>) -> Self {
+        match value {
+            Froms::Table { table_name, alias } => {
+                SqlBuilder::new().seg(table_name).seg("as").seg(alias)
+            }
+            Froms::SubQuery { table, alias } => SqlBuilder::new()
+                .seg("(")
+                .merge(*table)
+                .seg(") as")
+                .seg(alias),
+            Froms::Joins(joins) => (*joins).into(),
+            Froms::Union { table, alias } => {
+                let mut sb = SqlBuilder::new().seg("(");
+                let len = table.len();
+                for (id, f) in table.into_iter().enumerate() {
+                    sb = sb.merge(f);
+
+                    if id < len - 1 {
+                        sb = sb.seg("union");
+                    }
+                }
+                sb.seg(") as ").seg(alias)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub enum GroupBy<'a> {
+    Plain(Vec<Cow<'a, str>>),
+    #[default]
+    None,
+}
+
+#[derive(Debug, Default)]
+pub enum Having<'a> {
+    Custom(Cow<'a, str>),
+    #[default]
+    None,
+}
+
+pub struct SqlReader<'a> {
+    fields: Vec<SqlField<'a>>,
+    froms: Froms<'a>,
+    wheres: Wheres<'a>,
+    group_by: GroupBy<'a>,
+    having: Having<'a>,
+    order_by: Option<Vec<OrderBy<'a>>>,
+    limit: Option<LimitOffset>,
+}
+
+impl<'a> SqlReader<'a> {
+    pub fn builder<V: Into<Vec<SqlField<'a>>>>(
+        fields: V,
+        froms: Froms<'a>,
+    ) -> SqlReaderBuilder<'a> {
+        SqlReaderBuilder {
+            reader: SqlReader {
+                fields: fields.into(),
+                froms,
+                wheres: Wheres::None,
+                order_by: None,
+                limit: None,
+                group_by: Default::default(),
+                having: Default::default(),
+            },
+        }
+    }
+
+    pub fn limit(mut self, limit: LimitOffset) -> Self {
+        self.limit.replace(limit);
+        self
+    }
+}
+
+pub struct SqlReaderBuilder<'a> {
+    reader: SqlReader<'a>,
+}
+
+impl<'a> SqlReaderBuilder<'a> {
+    pub fn wheres(mut self, wheres: Wheres<'a>) -> Self {
+        self.reader.wheres = wheres;
+        self
+    }
+
+    pub fn order_by<T: Into<Vec<OrderBy<'a>>>>(mut self, orders: T) -> Self {
+        self.reader.order_by.replace(orders.into());
+        self
+    }
+
+    pub fn limit(mut self, limit: LimitOffset) -> Self {
+        self.reader.limit.replace(limit);
+        self
+    }
+
+    pub fn group_by<T: Into<GroupBy<'a>>>(mut self, group_by: T) -> Self {
+        self.reader.group_by = group_by.into();
+        self
+    }
+
+    pub fn having<T: Into<Having<'a>>>(mut self, having: T) -> Self {
+        self.reader.having = having.into();
+        self
+    }
+
+    pub fn build(self) -> SqlReader<'a> {
+        self.reader
+    }
+}
+
+impl<'a> From<SqlReader<'a>> for SqlBuilder<'a> {
+    fn from(value: SqlReader<'a>) -> Self {
+        let select = value
+            .fields
+            .iter()
+            .map(|m| match m.alias {
+                Some(alias) => {
+                    format!("{}.{} as {}", m.table_alias, m.field_name, alias)
+                }
+                None => {
+                    format!("{}.{}", m.table_alias, m.field_name)
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(", ");
+        SqlBuilder::new()
+            .seg("select")
+            .seg(select)
+            .seg("from")
+            .merge(value.froms)
+            .r#where(value.wheres)
+    }
+}
+
+pub struct SubQueryTable<'a> {
+    pub reader: SqlReader<'a>,
 }

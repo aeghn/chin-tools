@@ -49,8 +49,8 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
 
         table_struct_fields.extend(quote! {
             #[inline]
-            pub fn #field_ident(&'a self) -> chin_sql::SqlField<'a, #ty> {
-                chin_sql::SqlField::new(self.alias, #field_name_str)
+            pub fn #field_ident(&'a self) -> chin_sql::SqlTypedField<'a, #ty> {
+                chin_sql::SqlTypedField::new(self.alias, #field_name_str)
             }
         });
     }
@@ -79,7 +79,11 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
 
             // name with alias
             pub fn nwa(&self) -> String {
-                        format!("{} {}", #table_name, self.alias)
+                format!("{} {}", #table_name, self.alias)
+            }
+
+            pub fn all_fields(&self) -> String {
+                format!("{} *", self.alias)
             }
 
             #[inline]
@@ -119,7 +123,7 @@ fn generate_functions(table_name: &str, fields: &Vec<&Field>) -> Result<TokenStr
     let mut tokens = TokenStream2::new();
     let field_infos: Result<Vec<(FieldInfo, &syn::Field)>, syn::Error> = fields
         .iter()
-        .map(|field| (parse_field_info(field).map(|fi| (fi, *field))))
+        .map(|field| parse_field_info(field).map(|fi| (fi, *field)))
         .collect();
     let field_infos = field_infos?;
 

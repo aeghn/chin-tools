@@ -1,39 +1,69 @@
-use std::{borrow::Cow, marker::PhantomData};
+use std::{
+    borrow::Cow,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
-use crate::{str_type::Text, ILikeType, SqlBuilder, SqlValue, Wheres};
+use crate::{ILikeType, SqlBuilder, SqlValue, Wheres, str_type::Text};
 
 pub trait SqlTable<'a> {
     fn table_expr(&self) -> SqlBuilder<'a>;
     fn alias(&self) -> &'a str;
 }
 
-pub struct SqlField<'a, T> {
+#[derive(Clone, Debug)]
+pub struct SqlField<'a> {
     pub alias: Option<&'a str>,
     pub table_alias: &'a str,
     pub field_name: &'static str,
+}
+
+pub struct SqlTypedField<'a, T> {
+    field: SqlField<'a>,
     value_type: PhantomData<T>,
 }
 
-impl<'a, T> SqlField<'a, T> {
+impl<'a, T> Deref for SqlTypedField<'a, T> {
+    type Target = SqlField<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.field
+    }
+}
+impl<'a, T> DerefMut for SqlTypedField<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.field
+    }
+}
+
+impl<'a, T> SqlTypedField<'a, T> {
     pub fn new(table_alias: &'a str, field_name: &'static str) -> Self {
         Self {
-            alias: None,
-            table_alias: table_alias,
-            field_name: field_name,
+            field: SqlField {
+                alias: None,
+                table_alias: table_alias,
+                field_name: field_name,
+            },
             value_type: PhantomData::default(),
         }
     }
 
     pub fn with_alias(self, alias: &'a str) -> Self {
         Self {
-            alias: Some(alias),
+            field: SqlField {
+                alias: Some(alias),
+                ..self.field
+            },
             ..self
         }
     }
 
     pub fn with_table_alias(self, alias: &'a str) -> Self {
         Self {
-            table_alias: alias,
+            field: SqlField {
+                table_alias: alias,
+                ..self.field
+            },
             ..self
         }
     }
@@ -41,9 +71,13 @@ impl<'a, T> SqlField<'a, T> {
     pub fn twn(&self) -> Cow<'a, str> {
         format!("{}.{}", self.table_alias, self.field_name).into()
     }
+
+    pub fn erased(&self) -> SqlField<'a> {
+        self.field.clone()
+    }
 }
 
-impl<'a, T: 'a> SqlField<'a, T>
+impl<'a, T: 'a> SqlTypedField<'a, T>
 where
     T: Into<SqlValue<'a>>,
 {
@@ -56,13 +90,13 @@ where
     }
 }
 
-impl<'a> SqlField<'a, Text> {
+impl<'a> SqlTypedField<'a, Text> {
     pub fn v_ilike<V: AsRef<str>>(&self, v: V, exact: ILikeType) -> Wheres<'a> {
         Wheres::ilike(self.twn(), v.as_ref(), exact)
     }
 }
 
-impl<'a> SqlField<'a, i64> {
+impl<'a> SqlTypedField<'a, i64> {
     pub fn v_gt<V: Into<i64>>(&self, v: V) -> Wheres<'a> {
         Wheres::compare(self.twn(), ">", v.into())
     }
