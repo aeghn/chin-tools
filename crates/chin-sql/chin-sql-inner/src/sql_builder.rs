@@ -577,6 +577,17 @@ impl<'a> From<SqlReader<'a>> for SqlBuilder<'a> {
     }
 }
 
+impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
+    fn into_sql_seg2(
+        self,
+        db_type: DbType,
+        pht: &mut PlaceHolderType,
+    ) -> Result<SqlSeg<'a>, ChinSqlError> {
+        let sb: SqlBuilder<'a> = self.into();
+        sb.into_sql_seg2(db_type, pht)
+    }
+}
+
 pub struct SubQueryTable<'a> {
     pub reader: SqlReader<'a>,
 }
